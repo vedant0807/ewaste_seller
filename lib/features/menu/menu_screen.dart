@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
+import 'package:seller_ewaste/features/menu/profile_screen.dart';
+import 'package:seller_ewaste/features/menu/wallet_screen.dart';
+import 'package:seller_ewaste/features/menu/donate_ewaste_screen.dart';
+import 'package:seller_ewaste/features/menu/corporate_inquiry_screen.dart';
 
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
@@ -7,13 +11,21 @@ class MenuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      (Icons.person_outline_rounded, 'My Profile'),
-      (Icons.receipt_long_rounded, 'Transaction History'),
-      (Icons.card_giftcard_rounded, 'My Rewards'),
-      (Icons.eco_rounded, 'My Certificates'),
-      (Icons.business_rounded, 'Corporate Enquiry'),
-      (Icons.help_outline_rounded, 'Help & Support'),
-      (Icons.logout_rounded, 'Logout'),
+      (Icons.person_outline_rounded, 'My Profile', () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+      }),
+      (Icons.account_balance_wallet_rounded, 'My Wallet', () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletScreen()));
+      }),
+      (Icons.favorite_rounded, 'Donate E-Waste', () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const DonateEwasteScreen()));
+      }),
+      (Icons.business_rounded, 'Corporate Enquiry', () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const CorporateInquiryScreen()));
+      }),
+      (Icons.eco_rounded, 'My Certificates', () {}),
+      (Icons.help_outline_rounded, 'Help & Support', () {}),
+      (Icons.logout_rounded, 'Logout', () {}),
     ];
 
     return Scaffold(
@@ -112,7 +124,7 @@ class MenuScreen extends StatelessWidget {
                           size: 20,
                         )
                       : null,
-                  onTap: () {},
+                  onTap: i.$3 as void Function()?,
                 ),
               ),
               const Divider(height: 1),

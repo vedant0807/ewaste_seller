@@ -51,8 +51,8 @@ class AppBottomNavBar extends StatelessWidget {
                 onTap: () => onTap(2),
               ),
               _NavItem(
-                icon: Icons.local_shipping_rounded,
-                label: 'Pickup',
+                icon: Icons.wallet,
+                label: 'Wallet',
                 isActive: currentIndex == 3,
                 onTap: () => onTap(3),
               ),
@@ -83,31 +83,40 @@ class _NavItem extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          decoration: BoxDecoration(
-            color: isActive ? AppColors.primaryLight : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-          ),
+        child: Container(
+          color: Colors.transparent,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                color: isActive ? AppColors.primary : AppColors.textMuted,
-                size: 22,
-              ),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                  color: isActive ? AppColors.primary : AppColors.textMuted,
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: isActive ? AppColors.primaryLight : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      color: isActive ? AppColors.primary : AppColors.textMuted,
+                      size: 22,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                        color: isActive ? AppColors.primary : AppColors.textMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/core/widgets/bottom_nav_bar.dart';
 import 'package:seller_ewaste/features/dashboard/dashboard_screen.dart';
+import 'package:seller_ewaste/features/menu/wallet_screen.dart';
 import 'package:seller_ewaste/features/sell/sell_screen.dart';
 import 'package:seller_ewaste/features/requests/requests_screen.dart';
 import 'package:seller_ewaste/features/pickup/pickup_screen.dart';
@@ -20,7 +21,7 @@ class _MainScreenState extends State<MainScreen> {
     DashboardScreen(),
     SellScreen(),
     RequestsScreen(),
-    PickupScreen(),
+    WalletScreen(),
   ];
 
   @override

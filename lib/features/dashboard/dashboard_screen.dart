@@ -54,22 +54,22 @@ class _DashboardHeader extends StatelessWidget {
                   size: 28,
                 ),
               ),
-              GestureDetector(
-                onTap: () => _showProfileSheet(context),
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.person_rounded,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-              ),
+              // GestureDetector(
+              //   onTap: () => _showProfileSheet(context),
+              //   child: Container(
+              //     width: 44,
+              //     height: 44,
+              //     decoration: const BoxDecoration(
+              //       color: AppColors.primary,
+              //       shape: BoxShape.circle,
+              //     ),
+              //     child: const Icon(
+              //       Icons.person_rounded,
+              //       color: Colors.white,
+              //       size: 24,
+              //     ),
+              //   ),
+              // ),
             ],
           ),
           const SizedBox(height: 24),

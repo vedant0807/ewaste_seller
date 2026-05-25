@@ -236,7 +236,7 @@ class _LandingScreenState extends State<LandingScreen> {
                               style: TextStyle(
                                 color: AppColors.textPrimary,
                                 fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                                fontWeight:  FontWeight.w700,
                               ),
                             ),
                           ),

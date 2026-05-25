@@ -40,6 +40,7 @@ class _SellScreenState extends State<SellScreen> {
   final _bankNameController = TextEditingController();
   final _ifscController = TextEditingController();
   bool _hasGst = false;
+  final _gstController = TextEditingController();
 
   // ── Schedule state ────────────────────────────────────────────────────────
   final _fullNameController = TextEditingController();
@@ -153,6 +154,7 @@ class _SellScreenState extends State<SellScreen> {
     _accountNumberController.dispose();
     _bankNameController.dispose();
     _ifscController.dispose();
+    _gstController.dispose();
     _fullNameController.dispose();
     _emailController.dispose();
     _mobileController.dispose();
@@ -239,6 +241,7 @@ class _SellScreenState extends State<SellScreen> {
           category: _selectedCategory ?? '',
           hasGst: _hasGst,
           onGstChanged: (v) => setState(() => _hasGst = v),
+          gstController: _gstController,
           paymentMethod: _paymentMethod,
           onPaymentMethodChanged: (v) => setState(() => _paymentMethod = v),
           upiController: _upiController,
@@ -345,43 +348,41 @@ class _ProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-      child: Column(
-        children: [
-          Row(
-            children: List.generate(4, (i) {
-              return Expanded(
-                child: Container(
-                  margin: EdgeInsets.only(right: i < 3 ? 4 : 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: List.generate(4, (i) {
+          final isLast = i == 3;
+          return Container(
+            width: 110,
+            margin: EdgeInsets.only(right: isLast ? 0 : 6),
+            child: Column(
+              children: [
+                Container(
                   height: 4,
                   decoration: BoxDecoration(
                     color: i <= step ? AppColors.primary : AppColors.bgMuted,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              );
-            }),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: List.generate(4, (i) {
-              return Expanded(
-                child: Text(
+                const SizedBox(height: 8),
+                Text(
                   _labels[i],
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 9,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: i <= step
                         ? AppColors.primary
                         : AppColors.textMuted,
                   ),
                 ),
-              );
-            }),
-          ),
-        ],
+              ],
+            ),
+          );
+        }),
       ),
     );
   }
@@ -1069,6 +1070,7 @@ class _PaymentStep extends StatelessWidget {
   final String category;
   final bool hasGst;
   final Function(bool) onGstChanged;
+  final TextEditingController gstController;
   final String paymentMethod;
   final Function(String) onPaymentMethodChanged;
   final TextEditingController upiController;
@@ -1086,6 +1088,7 @@ class _PaymentStep extends StatelessWidget {
     required this.category,
     required this.hasGst,
     required this.onGstChanged,
+    required this.gstController,
     required this.paymentMethod,
     required this.onPaymentMethodChanged,
     required this.upiController,
@@ -1173,7 +1176,77 @@ class _PaymentStep extends StatelessWidget {
             checked: hasGst,
             onChanged: onGstChanged,
             title: 'I have a GST number (optional)',
-            bullets: const ['Quoted price is inclusive of 18% GST.'],
+            bullets: const [],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 4, bottom: 4),
+                  child: Text(
+                    'Quoted price is inclusive of 18% GST.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                if (hasGst) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: gstController,
+                    onChanged: (_) => onFieldChanged(),
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: '22AAAAA0000A1Z5',
+                      hintStyle: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                      filled: true,
+                      fillColor: AppColors.bgPage,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Base amount', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                      Text('—', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('GST (18%, included)', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                      Text('—', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+                  const SizedBox(height: 10),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Total (inclusive)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                      Text('—', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           ),
           const SizedBox(height: 32),
 
@@ -1330,6 +1403,49 @@ class _PaymentStep extends StatelessWidget {
             iconBg: AppColors.statusSuccessBg,
             title: 'Redeem as Gift Voucher',
             subtitle: 'Get up to 5% extra value when you choose a voucher instead of cash.',
+            hideRadio: true,
+            showChevron: true,
+            child: paymentMethod == 'voucher' ? Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 2.2,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                itemCount: 6,
+                itemBuilder: (context, i) {
+                  final v = const [
+                    ('Amazon Pay', '🛒', Color(0xFFF3EED9)),
+                    ('Flipkart', '🛍️', Color(0xFFDFE6F5)),
+                    ('Myntra', '👗', Color(0xFFF3E0E5)),
+                    ('BigBasket', '🛒', Color(0xFFDDF2E7)),
+                    ('Swiggy Money', '🍔', Color(0xFFF5E4DE)),
+                    ('Croma', '📱', Color(0xFFDEF2E8)),
+                  ][i];
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: v.$3,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(v.$2, style: const TextStyle(fontSize: 18)),
+                        const Spacer(),
+                        Text(v.$1, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        Text('₹${_fmt((estimatedPrice * 1.05).round())}', style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ) : null,
           ),
           const SizedBox(height: 20),
 
@@ -1657,6 +1773,7 @@ class _CheckboxCard extends StatelessWidget {
   final String title;
   final List<String> bullets;
   final bool highlight;
+  final Widget? child;
 
   const _CheckboxCard({
     required this.checked,
@@ -1664,6 +1781,7 @@ class _CheckboxCard extends StatelessWidget {
     required this.title,
     required this.bullets,
     this.highlight = false,
+    this.child,
   });
 
   @override
@@ -1724,6 +1842,7 @@ class _CheckboxCard extends StatelessWidget {
                       ),
                     ),
                   )),
+                  if (child != null) child!,
                 ],
               ),
             ),
@@ -1744,6 +1863,8 @@ class _PaymentMethodCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget? child;
+  final bool hideRadio;
+  final bool showChevron;
 
   const _PaymentMethodCard({
     required this.selected,
@@ -1755,6 +1876,8 @@ class _PaymentMethodCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.child,
+    this.hideRadio = false,
+    this.showChevron = false,
   });
 
   @override
@@ -1831,13 +1954,14 @@ class _PaymentMethodCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(
-                  selected
-                      ? Icons.radio_button_checked_rounded
-                      : Icons.radio_button_off_rounded,
-                  color: selected ? AppColors.primary : AppColors.textMuted,
-                  size: 20,
-                ),
+                if (!hideRadio)
+                  Icon(
+                    showChevron
+                        ? (selected ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded)
+                        : (selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded),
+                    color: selected && !showChevron ? AppColors.primary : AppColors.textSecondary,
+                    size: 20,
+                  ),
               ],
             ),
             if (child != null) child!,
