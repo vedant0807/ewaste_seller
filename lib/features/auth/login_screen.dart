@@ -1,6 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:seller_ewaste/core/services/api_service.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/features/main/main_screen.dart';
+import 'package:seller_ewaste/features/auth/widgets/registration_bottom_sheet.dart';
+import 'package:seller_ewaste/core/services/session_manager.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,9 +16,10 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
-  bool _otpSent = false;
   final _otpController = TextEditingController();
+  bool _otpSent = false;
   bool _loading = false;
+  String? _verificationId;
 
   @override
   void dispose() {
@@ -22,38 +28,163 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _sendOtp() {
-    setState(() => _loading = true);
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted)
-        setState(() {
-          _loading = false;
-          _otpSent = true;
-        });
-    });
+  Future<void> _callBackendLogin(User user) async {
+    try {
+      final idToken = await user.getIdToken();
+      if (idToken == null) throw Exception("Failed to get Firebase token");
+
+      final response = await ApiService().firebaseLogin(idToken);
+      
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = jsonDecode(response.body);
+        if (data['isRegistered'] == false) {
+          if (mounted) {
+            setState(() => _loading = false);
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => RegistrationBottomSheet(
+                phoneNumber: _phoneController.text.trim(),
+              ),
+            );
+          }
+        } else {
+          await SessionManager().saveSession(data);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const MainScreen()),
+            );
+          }
+        }
+      } else if (response.statusCode == 404) {
+        if (mounted) {
+          setState(() => _loading = false);
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => RegistrationBottomSheet(
+              phoneNumber: _phoneController.text.trim(),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() => _loading = false);
+          _showSnack('Backend login failed: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      debugPrint('Login error: $e');
+      if (mounted) {
+        setState(() => _loading = false);
+        _showSnack('Network error: Failed to login');
+      }
+    }
   }
 
-  void _verifyOtp() {
+  void _sendOtp() async {
+    final phone = _phoneController.text.trim();
+
+    if (phone.length != 10) {
+      _showSnack('Enter a valid 10-digit phone number');
+      return;
+    }
+
     setState(() => _loading = true);
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
+
+    await FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: '+91$phone',
+      timeout: const Duration(seconds: 60),
+
+      // Auto-retrieval or instant verification (Android only)
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        final userCred = await FirebaseAuth.instance.signInWithCredential(credential);
+        if (userCred.user != null) {
+          await _callBackendLogin(userCred.user!);
+        }
+      },
+
+      verificationFailed: (FirebaseAuthException e) {
+        if (mounted) {
+          setState(() => _loading = false);
+          _showSnack(e.message ?? 'Verification failed');
+        }
+      },
+
+      codeSent: (String verificationId, int? resendToken) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _otpSent = true;
+            _verificationId = verificationId;
+          });
+          _showSnack('OTP sent successfully');
+        }
+      },
+
+      codeAutoRetrievalTimeout: (String verificationId) {
+        _verificationId = verificationId;
+      },
+    );
+  }
+
+  void _verifyOtp() async {
+    final otp = _otpController.text.trim();
+
+    if (otp.length != 6) {
+      _showSnack('Enter the 6-digit OTP');
+      return;
+    }
+
+    if (_verificationId == null) {
+      _showSnack('Please request OTP first');
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: otp,
+      );
+
+      final userCred = await FirebaseAuth.instance.signInWithCredential(credential);
+
+      if (userCred.user != null) {
+        await _callBackendLogin(userCred.user!);
       }
-    });
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        _showSnack(e.message ?? 'Invalid OTP');
+      }
+    } catch (e) {
+      debugPrint('OTP verify error: $e');
+      if (mounted) {
+        setState(() => _loading = false);
+        _showSnack('Error: Failed to verify OTP');
+      }
+    }
+  }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgPage,
-      body: SafeArea(
+      body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.xl),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 40),
               // Logo
@@ -111,6 +242,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         maxLength: 10,
+                        enabled: !_otpSent, // lock after OTP sent
                         decoration: const InputDecoration(
                           hintText: '10-digit mobile number',
                           border: InputBorder.none,
@@ -163,7 +295,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 GestureDetector(
-                  onTap: _sendOtp,
+                  onTap: _loading ? null : _sendOtp,
                   child: const Text(
                     'Resend OTP',
                     style: TextStyle(
@@ -194,63 +326,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   child: _loading
                       ? const CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        )
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  )
                       : Text(
-                          _otpSent ? 'Verify & Login' : 'Send OTP',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                    _otpSent ? 'Verify & Login' : 'Send OTP',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Divider
-              Row(
-                children: [
-                  const Expanded(child: Divider()),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'or continue with',
-                      style: AppTextStyles.bodySmall,
-                    ),
-                  ),
-                  const Expanded(child: Divider()),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // Google Sign In
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MainScreen()),
-                  ),
-                  icon: const Text('🔍', style: TextStyle(fontSize: 20)),
-                  label: const Text(
-                    'Continue with Google',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.border),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
 
               Center(
                 child: Text.rich(

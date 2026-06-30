@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/features/landing/landing_screen.dart';
+import 'package:seller_ewaste/features/main/main_screen.dart';
+import 'package:seller_ewaste/core/services/session_manager.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -27,18 +28,23 @@ class _SplashScreenState extends State<SplashScreen>
       CurvedAnimation(parent: _controller, curve: const Interval(0.3, 1.0)),
     );
     _controller.forward();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const LandingScreen(),
-            transitionsBuilder: (_, anim, __, child) =>
-                FadeTransition(opacity: anim, child: child),
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
-        );
-      }
-    });
+    _checkLoginState();
+  }
+
+  Future<void> _checkLoginState() async {
+    final isLoggedIn = await SessionManager().isLoggedIn();
+    await Future.delayed(const Duration(seconds: 2));
+    
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => isLoggedIn ? const MainScreen() : const LandingScreen(),
+          transitionsBuilder: (context, anim, secondaryAnimation, child) =>
+              FadeTransition(opacity: anim, child: child),
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      );
+    }
   }
 
   @override
@@ -68,10 +74,10 @@ class _SplashScreenState extends State<SplashScreen>
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       width: 1.5,
                     ),
                   ),
@@ -100,7 +106,7 @@ class _SplashScreenState extends State<SplashScreen>
                     Text(
                       "India's Smartest E-Waste Platform",
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
                       ),

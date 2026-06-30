@@ -1,4 +1,4 @@
-package com.example.seller_ewaste
+package com.ewaste.synise
 
 import io.flutter.embedding.android.FlutterActivity
 

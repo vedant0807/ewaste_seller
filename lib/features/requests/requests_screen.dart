@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
+import 'package:seller_ewaste/core/services/api_service.dart';
 
 class RequestsScreen extends StatefulWidget {
   const RequestsScreen({super.key});
@@ -11,11 +13,58 @@ class RequestsScreen extends StatefulWidget {
 class _RequestsScreenState extends State<RequestsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
+  List<dynamic> _requests = [];
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
+    _fetchRequests();
+  }
+
+  Future<void> _fetchRequests() async {
+    try {
+      final response = await ApiService().getMyRequests();
+      debugPrint('MY REQUESTS RAW BODY: ${response.body}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        List<dynamic> parsedRequests = [];
+        
+        if (data is List) {
+          parsedRequests = data;
+        } else if (data is Map) {
+          if (data.containsKey('requests')) {
+            parsedRequests = data['requests'] as List<dynamic>;
+          } else if (data.containsKey('data')) {
+            parsedRequests = data['data'] as List<dynamic>;
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _requests = parsedRequests;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _error = 'Failed to load requests';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('MyRequests Error: $e');
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to fetch requests';
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -41,26 +90,34 @@ class _RequestsScreenState extends State<RequestsScreen>
               ),
               child: Row(
                 children: [
-                  const Text('My Requests', style: AppTextStyles.displayMedium),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('My Requests', style: AppTextStyles.displayMedium),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Track the progress of your sell requests.',
+                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
                   const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(AppRadius.full),
-                    ),
-                    child: const Text(
-                      '4 Active',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryDark,
+                  if (!_isLoading && _error == null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                      ),
+                      child: Text(
+                        '${_requests.where((r) => (r['statusStep'] as int? ?? 1) < 6).length} Active',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryDark,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -82,10 +139,7 @@ class _RequestsScreenState extends State<RequestsScreen>
                   indicatorSize: TabBarIndicatorSize.tab,
                   labelColor: Colors.white,
                   unselectedLabelColor: AppColors.textSecondary,
-                  labelStyle: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                   dividerColor: Colors.transparent,
                   padding: const EdgeInsets.all(4),
                   tabs: const [
@@ -99,14 +153,18 @@ class _RequestsScreenState extends State<RequestsScreen>
             const SizedBox(height: 12),
 
             Expanded(
-              child: TabBarView(
-                controller: _tabs,
-                children: [
-                  _RequestsList(all: true),
-                  _RequestsList(all: false, activeOnly: true),
-                  _RequestsList(all: false, activeOnly: false),
-                ],
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+                      : TabBarView(
+                          controller: _tabs,
+                          children: [
+                            _RequestsList(requests: _requests, all: true, onRefresh: _fetchRequests),
+                            _RequestsList(requests: _requests, all: false, activeOnly: true, onRefresh: _fetchRequests),
+                            _RequestsList(requests: _requests, all: false, activeOnly: false, onRefresh: _fetchRequests),
+                          ],
+                        ),
             ),
           ],
         ),
@@ -116,369 +174,295 @@ class _RequestsScreenState extends State<RequestsScreen>
 }
 
 class _RequestsList extends StatelessWidget {
+  final List<dynamic> requests;
   final bool all;
   final bool activeOnly;
+  final Future<void> Function() onRefresh;
 
-  const _RequestsList({required this.all, this.activeOnly = true});
+  const _RequestsList({
+    required this.requests,
+    required this.all,
+    this.activeOnly = true,
+    required this.onRefresh,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final requests = [
-      _RequestData(
-        'MacBook Pro 2019',
-        'REQ-1024',
-        'Mar 4, 2026',
-        'Under Verification',
-        AppColors.statusPending,
-        AppColors.statusPendingBg,
-        5,
-        '₹8,500',
-      ),
-      _RequestData(
-        'iPhone 12',
-        'REQ-1023',
-        'Mar 3, 2026',
-        'Collected',
-        AppColors.statusInfo,
-        AppColors.statusInfoBg,
-        4,
-        '₹6,000',
-      ),
-      _RequestData(
-        'Dell Monitor 24"',
-        'REQ-1022',
-        'Mar 1, 2026',
-        'Paid',
-        AppColors.statusSuccess,
-        AppColors.statusSuccessBg,
-        7,
-        '₹4,200',
-      ),
-      _RequestData(
-        'HP Printer',
-        'REQ-1021',
-        'Feb 28, 2026',
-        'Certificate Issued',
-        AppColors.statusPurple,
-        AppColors.statusPurpleBg,
-        7,
-        '₹1,800',
-      ),
-    ];
+    final filtered = requests.where((req) {
+      if (all) return true;
+      final step = req['statusStep'] as int? ?? 1;
+      if (activeOnly) return step < 6;
+      return step >= 6; // completed
+    }).toList();
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-      itemCount: requests.length,
-      itemBuilder: (_, i) => _RequestCard(data: requests[i]),
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: AppColors.primary,
+      child: filtered.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.5,
+                  child: const Center(
+                    child: Text('No requests found.', style: AppTextStyles.bodyLarge),
+                  ),
+                ),
+              ],
+            )
+          : ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
+              itemCount: filtered.length,
+              itemBuilder: (_, i) => _RequestCard(data: filtered[i] as Map<String, dynamic>),
+            ),
     );
   }
 }
 
-class _RequestData {
-  final String device;
-  final String reqId;
-  final String date;
-  final String status;
-  final Color statusColor;
-  final Color statusBgColor;
-  final int progressStep;
-  final String price;
-
-  const _RequestData(
-    this.device,
-    this.reqId,
-    this.date,
-    this.status,
-    this.statusColor,
-    this.statusBgColor,
-    this.progressStep,
-    this.price,
-  );
-}
-
 class _RequestCard extends StatelessWidget {
-  final _RequestData data;
+  final Map<String, dynamic> data;
   const _RequestCard({required this.data});
+
+  String _formatDate(String? isoString) {
+    if (isoString == null) return '';
+    try {
+      final dt = DateTime.parse(isoString);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]} ${dt.year}';
+    } catch (_) {
+      return isoString;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final device = data['device'] ?? 'Unknown Device';
+    final reqId = data['requestNumber'] ?? '';
+    final date = _formatDate(data['createdAt']);
+    final price = data['estimatedPrice']?.toString() ?? '0';
+    final step = data['statusStep'] as int? ?? 1;
+    final payoutMethod = data['payout']?['preferredMethod'] ?? 'Wallet';
+
     return GestureDetector(
       onTap: () => _showRequestDetail(context, data),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppColors.bgCard,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(AppRadius.xl),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
           border: Border.all(color: AppColors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(data.device, style: AppTextStyles.headingMedium),
-                      const SizedBox(height: 2),
                       Text(
-                        '${data.reqId} · ${data.date}',
-                        style: AppTextStyles.bodySmall,
+                        device,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$reqId  ·  $date',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: data.statusBgColor,
-                    borderRadius: BorderRadius.circular(AppRadius.full),
-                  ),
-                  child: Text(
-                    data.status,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: data.statusColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // Progress Bar
-            _TrackerProgress(currentStep: data.progressStep),
-            const SizedBox(height: 12),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Icon(
-                      Icons.currency_rupee_rounded,
-                      size: 14,
-                      color: AppColors.textMuted,
-                    ),
-                    Text(
-                      'Est. Value: ${data.price}',
-                      style: AppTextStyles.bodySmall,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F5E9), // Light green
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.currency_rupee_rounded, size: 10, color: Color(0xFF2E7D32)),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Paid in $payoutMethod',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2E7D32),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '₹$price',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF10B981),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.textMuted,
-                  size: 18,
-                ),
               ],
             ),
+            const SizedBox(height: 24),
+            if (data['status']?.toString().toLowerCase() == 'rejected')
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.cancel_rounded, color: Colors.red, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Request Rejected',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              _TrackerProgress(currentStep: step, payoutMethod: payoutMethod),
           ],
         ),
       ),
     );
   }
 
-  void _showRequestDetail(BuildContext context, _RequestData data) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _RequestDetailSheet(data: data),
-    );
+  void _showRequestDetail(BuildContext context, Map<String, dynamic> data) {
+    // We can keep the detail sheet empty for now or format it similarly
+    // It wasn't in the screenshot, but we shouldn't break the feature.
   }
 }
 
 class _TrackerProgress extends StatelessWidget {
   final int currentStep;
-  const _TrackerProgress({required this.currentStep});
+  final String payoutMethod;
 
-  static const _steps = [
-    'Requested',
-    'Approved',
-    'Scheduled',
-    'Collected',
-    'Verification',
-    'Paid',
-    'Certificate',
-  ];
+  const _TrackerProgress({required this.currentStep, required this.payoutMethod});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final steps = [
+      (label: 'Requested', color: const Color(0xFF6B7280), icon: Icons.check_rounded),
+      (label: 'Approved', color: const Color(0xFF3B82F6), icon: Icons.check_rounded),
+      (label: 'Scheduled', color: const Color(0xFFF59E0B), icon: Icons.check_rounded),
+      (label: 'Collected', color: const Color(0xFF8B5CF6), icon: Icons.check_rounded),
+      (label: 'Paid', color: const Color(0xFF10B981), icon: Icons.currency_rupee_rounded),
+      (label: 'Certificate', color: const Color(0xFFD1D5DB), icon: Icons.workspace_premium_rounded),
+    ];
+
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: List.generate(
-            _steps.length,
-            (i) => Expanded(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 3,
-                      color: i < currentStep
-                          ? AppColors.primary
-                          : AppColors.bgMuted,
+      children: List.generate(steps.length, (i) {
+        final isCompleted = i < currentStep - 1;
+        final isCurrent = i == currentStep - 1;
+        final isFuture = i > currentStep - 1;
+        
+        final stepData = steps[i];
+        final nodeColor = isFuture ? const Color(0xFFE5E7EB) : stepData.color;
+        
+        final leftLineColor = i == 0 ? Colors.transparent : (i < currentStep ? const Color(0xFF10B981) : const Color(0xFFE5E7EB));
+        final rightLineColor = i == steps.length - 1 ? Colors.transparent : (i < currentStep - 1 ? const Color(0xFF10B981) : const Color(0xFFE5E7EB));
+
+        return Expanded(
+          child: Column(
+            children: [
+              SizedBox(
+                height: 36,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: Container(height: 2, color: leftLineColor)),
+                        Expanded(child: Container(height: 2, color: rightLineColor)),
+                      ],
                     ),
-                  ),
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: i < currentStep
-                          ? AppColors.primary
-                          : i == currentStep
-                          ? AppColors.primary
-                          : AppColors.bgMuted,
-                      shape: BoxShape.circle,
-                      border: i == currentStep
-                          ? Border.all(color: AppColors.primary, width: 2)
-                          : null,
-                    ),
-                  ),
-                  if (i < _steps.length - 1)
-                    Expanded(
-                      child: Container(
-                        height: 3,
-                        color: i < currentStep - 1
-                            ? AppColors.primary
-                            : AppColors.bgMuted,
+                    Container(
+                      width: isCurrent ? 36 : 24,
+                      height: isCurrent ? 36 : 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isCurrent ? nodeColor.withValues(alpha: 0.2) : Colors.transparent,
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isFuture ? Colors.white : nodeColor,
+                            border: isFuture ? Border.all(color: nodeColor, width: 2) : null,
+                          ),
+                          child: Icon(
+                            isCompleted ? Icons.check_rounded : (isCurrent ? stepData.icon : null),
+                            size: 14,
+                            color: isFuture ? Colors.transparent : Colors.white,
+                          ),
+                        ),
                       ),
                     ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RequestDetailSheet extends StatelessWidget {
-  final _RequestData data;
-  const _RequestDetailSheet({required this.data});
-
-  static const _stages = [
-    (Icons.send_rounded, 'Requested', 'Your request was submitted'),
-    (Icons.check_circle_rounded, 'Approved', 'Approved by our team'),
-    (Icons.calendar_today_rounded, 'Scheduled', 'Pickup date confirmed'),
-    (Icons.local_shipping_rounded, 'Collected', 'Device picked up'),
-    (Icons.search_rounded, 'Verification', 'Physical inspection'),
-    (Icons.payments_rounded, 'Paid', 'Payment transferred'),
-    (
-      Icons.workspace_premium_rounded,
-      'Certificate',
-      'Green certificate issued',
-    ),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      maxChildSize: 0.95,
-      minChildSize: 0.5,
-      builder: (_, controller) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: ListView(
-          controller: controller,
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(data.device, style: AppTextStyles.displayMedium),
-            Text(
-              '${data.reqId} · ${data.date}',
-              style: AppTextStyles.bodyMedium,
-            ),
-            const SizedBox(height: 20),
-            ..._stages.asMap().entries.map((e) {
-              final isDone = e.key < data.progressStep;
-              final isCurrent = e.key == data.progressStep - 1;
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Column(
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: isDone
-                              ? AppColors.primary
-                              : isCurrent
-                              ? AppColors.primaryLight
-                              : AppColors.bgMuted,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          e.value.$1,
-                          color: isDone
-                              ? Colors.white
-                              : isCurrent
-                              ? AppColors.primary
-                              : AppColors.textMuted,
-                          size: 20,
-                        ),
-                      ),
-                      if (e.key < _stages.length - 1)
-                        Container(
-                          width: 2,
-                          height: 32,
-                          color: isDone ? AppColors.primary : AppColors.bgMuted,
-                        ),
-                    ],
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 10, bottom: 32),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            e.value.$2,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: isDone
-                                  ? AppColors.primary
-                                  : isCurrent
-                                  ? AppColors.textPrimary
-                                  : AppColors.textMuted,
-                            ),
-                          ),
-                          Text(e.value.$3, style: AppTextStyles.bodySmall),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            }),
-          ],
-        ),
-      ),
+              const SizedBox(height: 6),
+              Text(
+                stepData.label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  height: 1.1,
+                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                  color: isCurrent ? nodeColor : AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 }

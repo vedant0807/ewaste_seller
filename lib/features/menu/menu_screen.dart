@@ -1,16 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
+import 'package:seller_ewaste/features/auth/login_screen.dart';
+import 'package:seller_ewaste/features/orders/orders_screen.dart';
 import 'package:seller_ewaste/features/menu/profile_screen.dart';
 import 'package:seller_ewaste/features/menu/wallet_screen.dart';
 import 'package:seller_ewaste/features/menu/donate_ewaste_screen.dart';
 import 'package:seller_ewaste/features/menu/corporate_inquiry_screen.dart';
+import 'package:seller_ewaste/core/services/session_manager.dart';
 
-class MenuScreen extends StatelessWidget {
+class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
+
+  @override
+  State<MenuScreen> createState() => _MenuScreenState();
+}
+
+class _MenuScreenState extends State<MenuScreen> {
+  String _name = 'User Name';
+  String _phone = 'Phone Number';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final name = await SessionManager().getUserName();
+    final phone = await SessionManager().getPhoneNumber();
+    if (mounted) {
+      setState(() {
+        _name = name != null && name.isNotEmpty ? name : 'User Name';
+        _phone = phone != null && phone.isNotEmpty ? phone : 'Phone Number';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final items = [
+      (Icons.receipt_long_rounded, 'My Orders', () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));
+      }),
       (Icons.person_outline_rounded, 'My Profile', () {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
       }),
@@ -25,7 +56,15 @@ class MenuScreen extends StatelessWidget {
       }),
       (Icons.eco_rounded, 'My Certificates', () {}),
       (Icons.help_outline_rounded, 'Help & Support', () {}),
-      (Icons.logout_rounded, 'Logout', () {}),
+      (Icons.logout_rounded, 'Logout', () async {
+        await SessionManager().clearSession();
+        if (!context.mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      }),
     ];
 
     return Scaffold(
@@ -66,11 +105,11 @@ class MenuScreen extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Rahul Sharma',
+                        Text(
+                          _name,
                           style: AppTextStyles.headingMedium,
                         ),
-                        Text('+91 98765 43210', style: AppTextStyles.bodySmall),
+                        Text(_phone, style: AppTextStyles.bodySmall),
                       ],
                     ),
                     const Spacer(),

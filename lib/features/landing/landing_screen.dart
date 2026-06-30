@@ -5,7 +5,6 @@ import 'package:video_player/video_player.dart';
 
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/features/auth/login_screen.dart';
-import 'package:seller_ewaste/features/main/main_screen.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -81,7 +80,7 @@ class _LandingScreenState extends State<LandingScreen> {
   void _goToMain() {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const MainScreen()),
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
 
@@ -184,8 +183,8 @@ class _LandingScreenState extends State<LandingScreen> {
                   end: Alignment.topCenter,
                   colors: [
                     Colors.white,
-                    Colors.white.withOpacity(0.9),
-                    Colors.white.withOpacity(0.0),
+                    Colors.white.withValues(alpha: 0.9),
+                    Colors.white.withValues(alpha: 0.0),
                   ],
                   stops: const [0.6, 0.85, 1.0],
                 ),
@@ -254,11 +253,11 @@ class _LandingScreenState extends State<LandingScreen> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                             elevation: 8,
-                            shadowColor: AppColors.primary.withOpacity(0.4),
+                            shadowColor: AppColors.primary.withValues(alpha: 0.4),
                           ),
                           child: Text(
                             _currentPage == _pages.length - 1
-                                ? 'Get Started'
+                                ? 'Sell E-Waste'
                                 : 'Next',
                             style: const TextStyle(
                               fontSize: 16,
@@ -327,7 +326,7 @@ class _OnboardingPage extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: data.primaryColor.withOpacity(0.15),
+                      color: data.primaryColor.withValues(alpha: 0.15),
                       blurRadius: 40,
                       offset: const Offset(0, 15),
                     ),
@@ -342,7 +341,7 @@ class _OnboardingPage extends StatelessWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
+                          color: Colors.black.withValues(alpha: 0.06),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -360,7 +359,7 @@ class _OnboardingPage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: data.primaryColor.withOpacity(0.12),
+              color: data.primaryColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(AppRadius.full),
             ),
             child: Text(
@@ -536,11 +535,11 @@ class _LiveRecyclingAnimationState extends State<LiveRecyclingAnimation> {
                           top: Radius.circular(10),
                           bottom: Radius.circular(20),
                         ),
-                        color: AppColors.primaryLight.withOpacity(0.5),
+                        color: AppColors.primaryLight.withValues(alpha: 0.5),
                         boxShadow: [
                           if (_phase >= 2)
                             BoxShadow(
-                              color: AppColors.primary.withOpacity(0.2),
+                              color: AppColors.primary.withValues(alpha: 0.2),
                               blurRadius: 30,
                               spreadRadius: 10,
                             ),
@@ -554,7 +553,7 @@ class _LiveRecyclingAnimationState extends State<LiveRecyclingAnimation> {
                             Icons.recycling_rounded,
                             color: _phase == 3
                                 ? AppColors.primary
-                                : AppColors.primaryDark.withOpacity(0.5),
+                                : AppColors.primaryDark.withValues(alpha: 0.5),
                             size: 40,
                           ),
                         ),
@@ -699,7 +698,7 @@ class _DeviceIcon extends StatelessWidget {
               border: Border.all(color: Colors.blueGrey.shade200, width: 2),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -776,7 +775,7 @@ class _RecyclingVideoState extends State<RecyclingVideo> {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),

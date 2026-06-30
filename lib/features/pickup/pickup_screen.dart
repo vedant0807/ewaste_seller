@@ -314,7 +314,7 @@ class _PickupScreenState extends State<PickupScreen> {
                         color: AppColors.primaryLight,
                         borderRadius: BorderRadius.circular(AppRadius.xl),
                         border: Border.all(
-                          color: AppColors.primary.withOpacity(0.3),
+                          color: AppColors.primary.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Row(

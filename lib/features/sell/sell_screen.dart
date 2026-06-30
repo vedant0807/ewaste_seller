@@ -1,5 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
+import 'package:seller_ewaste/features/requests/requests_screen.dart';
+import 'package:seller_ewaste/core/services/api_service.dart';
+import 'package:seller_ewaste/features/main/main_screen.dart';
 
 // ---------------------------------------------------------------------------
 // SELL SCREEN — Flow: Upload → Device Details → Payment → Schedule Pickup
@@ -16,17 +21,45 @@ class _SellScreenState extends State<SellScreen> {
   int _step = 0; // 0=upload, 1=details, 2=payment, 3=schedule
 
   // ── Step 1 state ──────────────────────────────────────────────────────────
-  String? _selectedCategory;
-  String _condition = 'Good';
-  String _purchaseYear = '2021';
-  final _brandController = TextEditingController();
-  final _modelController = TextEditingController();
-  final _storageController = TextEditingController();
-  final _ramController = TextEditingController();
-  final _romController = TextEditingController();
-  final _capacityController = TextEditingController();
-  final _sizeController = TextEditingController();
-  final _tonnageController = TextEditingController();
+  final List<String> _uploadedImageUrls = [];
+  Map<String, dynamic>? _selectedCategoryModel;
+  final Map<String, TextEditingController> _textControllers = {};
+  final Map<String, String> _dropdownValues = {};
+  final ValueNotifier<int> _formUpdateNotifier = ValueNotifier(0);
+  
+  bool _isLoadingCategories = true;
+  String? _categoriesError;
+  List<Map<String, dynamic>> _apiCategories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCategories();
+  }
+
+  Future<void> _fetchCategories() async {
+    try {
+      final res = await ApiService().getCategories();
+      if (res.statusCode == 200) {
+        final List json = jsonDecode(res.body);
+        setState(() {
+          _apiCategories = json.cast<Map<String, dynamic>>().toList();
+          _isLoadingCategories = false;
+        });
+      } else {
+        setState(() {
+          _categoriesError = 'Failed to load categories';
+          _isLoadingCategories = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Categories error: $e');
+      setState(() {
+        _categoriesError = 'Failed to fetch categories';
+        _isLoadingCategories = false;
+      });
+    }
+  }
 
   // ── Terms / accept state (step 1 bottom) ─────────────────────────────────
   bool _termsAccepted = false;
@@ -55,7 +88,7 @@ class _SellScreenState extends State<SellScreen> {
 
   // ── Derived price ─────────────────────────────────────────────────────────
   static const Map<String, int> _basePrices = {
-    'Mobile Phone': 4000,
+    'Mobile': 4000,
     'Laptop': 8500,
     'Desktop': 5000,
     'Television': 2000,
@@ -65,7 +98,7 @@ class _SellScreenState extends State<SellScreen> {
     'Gaming Console': 3000,
     'Camera': 3500,
     'Home Appliance': 2000,
-    'Air Conditioner': 4500,
+    'AC': 4500,
     'Refrigerator': 3000,
     'Washing Machine': 2500,
     'Other': 1000,
@@ -78,14 +111,33 @@ class _SellScreenState extends State<SellScreen> {
     'Poor': 0.5,
   };
 
+  bool get _allRequiredFilled {
+    if (_selectedCategoryModel == null) return false;
+    final attrs = _selectedCategoryModel!['attributes'] as List<dynamic>? ?? [];
+    for (final attrMap in attrs) {
+      final attr = attrMap as Map<String, dynamic>;
+      final isRequired = attr['isRequired'] == true;
+      final slug = attr['slug'] as String;
+      final inputType = attr['inputType'] as String?;
+
+      if (isRequired) {
+        if (inputType == 'dropdown') {
+          if (_dropdownValues[slug] == null || _dropdownValues[slug]!.isEmpty) return false;
+        } else {
+          final text = _textControllers[slug]?.text.trim() ?? '';
+          if (text.isEmpty) return false;
+        }
+      }
+    }
+    return true;
+  }
+
   int get _estimatedPrice {
-    if (_selectedCategory == null) return 0;
-    final base = _basePrices[_selectedCategory!] ?? 1000;
-    final mult = _conditionMultiplier[_condition] ?? 1.0;
-    final yearNow = DateTime.now().year;
-    final year = int.tryParse(_purchaseYear) ?? (yearNow - 3);
-    final ageFactor = (1 - ((yearNow - year) * 0.05)).clamp(0.3, 1.0);
-    return (base * mult * ageFactor).round();
+    if (_selectedCategoryModel == null) return 0;
+    final base = _basePrices[_selectedCategoryModel!['name']] ?? 1000;
+    final cond = _dropdownValues['condition'] ?? 'Good';
+    final mult = _conditionMultiplier[cond] ?? 1.0;
+    return (base * mult).round();
   }
 
   String get _estimatedPriceRange {
@@ -122,33 +174,130 @@ class _SellScreenState extends State<SellScreen> {
           _pickupDate != null &&
           _timeSlot != null;
 
-  final _categories = const [
-    ('❄️', 'Air Conditioner'),
-    ('📺', 'Television'),
-    ('📱', 'Mobile Phone'),
-    ('💻', 'Laptop'),
-    ('🖥️', 'Desktop'),
-    ('❄️', 'Refrigerator'),
-    ('🫧', 'Washing Machine'),
-    ('🖨️', 'Printer'),
-    ('📡', 'Router / WiFi'),
-    ('🎮', 'Gaming Console'),
-    ('📷', 'Camera'),
-    ('🏠', 'Home Appliance'),
-    ('⌨️', 'Monitor'),
-    ('📦', 'Other'),
-  ];
+  Future<void> _submitSellRequest() async {
+    final categoryName = _selectedCategoryModel?['name'] ?? 'Unknown';
+    
+    String? brandValue;
+    for (final k in _dropdownValues.keys) {
+      if (k.toLowerCase() == 'brand') {
+        brandValue = _dropdownValues[k];
+        break;
+      }
+    }
+    if (brandValue == null || brandValue.isEmpty) {
+      for (final k in _textControllers.keys) {
+        if (k.toLowerCase() == 'brand') {
+          brandValue = _textControllers[k]?.text;
+          break;
+        }
+      }
+    }
+    
+    final brand = (brandValue != null && brandValue.isNotEmpty) ? brandValue : 'Unknown';
+    
+    final Map<String, String> attributes = {};
+    _dropdownValues.forEach((k, v) { 
+      if (k.toLowerCase() != 'brand') attributes[k] = v; 
+    });
+    _textControllers.forEach((k, v) { 
+      if (k.toLowerCase() != 'brand' && v.text.isNotEmpty) attributes[k] = v.text; 
+    });
+    
+    final attrString = attributes.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+    final deviceStr = '$categoryName ${attrString.isNotEmpty ? '($attrString)' : ''}'.trim();
+    
+    final nameParts = _fullNameController.text.trim().split(' ');
+    final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+    final lastName = nameParts.length > 1 ? nameParts.skip(1).join(' ') : '';
+    
+    final dateStr = _pickupDate?.toIso8601String().split('T')[0] ?? '';
+    final notes = 'Scheduled pickup on $dateStr during $_timeSlot. Landmark: N/A';
+
+    final payload = {
+      'device': deviceStr,
+      'category': categoryName,
+      'brand': brand,
+      'estimatedPrice': _estimatedPrice,
+      'deliveryOption': 'service',
+      'address': {
+        'firstName': firstName,
+        'lastName': lastName,
+        'address': '${_addressController.text}, ${_areaController.text}'.trim(),
+        'city': 'Pune', 
+        'state': 'Maharashtra',
+        'pincode': _pincodeController.text,
+        'phone': _mobileController.text,
+        'email': _emailController.text,
+        'alternatePhoneNumber': _altContactController.text,
+        'addressType': 'Home',
+      },
+      'images': _uploadedImageUrls,
+      'notes': notes,
+      'paymentMethod': _paymentMethod.toUpperCase(),
+      'scheduledDate': dateStr,
+      'timeSlot': _timeSlot,
+    };
+    
+    debugPrint('=== FINAL SELL PAYLOAD ===');
+    debugPrint(const JsonEncoder.withIndent('  ').convert(payload));
+    debugPrint('==========================');
+    
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+
+      // Verify pincode serviceability first
+      final pinRes = await ApiService().checkPincode(_pincodeController.text.trim());
+      bool isServiceable = pinRes.statusCode == 200;
+      String errorMsg = 'Pincode is unserviceable at the moment.';
+      
+      if (isServiceable) {
+        try {
+          final json = jsonDecode(pinRes.body);
+          if (json['serviceAvailable'] == false) {
+            isServiceable = false;
+            if (json['message'] != null) errorMsg = json['message'];
+          }
+        } catch (_) {}
+      }
+
+      if (!isServiceable) {
+        if (mounted) {
+          Navigator.pop(context); // close loader
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMsg)),
+          );
+        }
+        return;
+      }
+
+      await ApiService().submitSellRequest(payload);
+      
+      if (mounted) {
+        Navigator.pop(context); // close loader
+        showDialog(
+          context: context,
+          builder: (_) => const _SuccessDialog(),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // close loader
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit: $e')),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
-    _brandController.dispose();
-    _modelController.dispose();
-    _storageController.dispose();
-    _ramController.dispose();
-    _romController.dispose();
-    _capacityController.dispose();
-    _sizeController.dispose();
-    _tonnageController.dispose();
+    for (final ctrl in _textControllers.values) {
+      ctrl.dispose();
+    }
     _upiController.dispose();
     _accountNameController.dispose();
     _accountNumberController.dispose();
@@ -204,77 +353,112 @@ class _SellScreenState extends State<SellScreen> {
       case 0:
         return _UploadStep(
           key: const ValueKey(0),
+          uploadedImages: _uploadedImageUrls,
+          onImagesChanged: (urls) {
+            setState(() {
+              _uploadedImageUrls.clear();
+              _uploadedImageUrls.addAll(urls);
+            });
+          },
           onNext: () => setState(() => _step = 1),
         );
       case 1:
-        return _DeviceDetailsStep(
-          key: const ValueKey(1),
-          categories: _categories,
-          selectedCategory: _selectedCategory,
-          onCategorySelect: (c) => setState(() => _selectedCategory = c),
-          condition: _condition,
-          onConditionChange: (c) => setState(() => _condition = c),
-          purchaseYear: _purchaseYear,
-          onYearChange: (y) => setState(() => _purchaseYear = y),
-          brandController: _brandController,
-          modelController: _modelController,
-          storageController: _storageController,
-          ramController: _ramController,
-          romController: _romController,
-          capacityController: _capacityController,
-          sizeController: _sizeController,
-          tonnageController: _tonnageController,
-          estimatedPriceRange: _estimatedPriceRange,
-          estimatedPrice: _estimatedPrice,
-          termsAccepted: _termsAccepted,
-          onTermsChanged: (v) => setState(() => _termsAccepted = v),
-          priceAccepted: _priceAccepted,
-          onPriceAcceptChanged: (v) => setState(() => _priceAccepted = v),
-          onNext: (_termsAccepted && _priceAccepted && _selectedCategory != null)
-              ? () => setState(() => _step = 2)
-              : null,
+        return ValueListenableBuilder<int>(
+          valueListenable: _formUpdateNotifier,
+          builder: (context, value, child) {
+            return _DeviceDetailsStep(
+              key: const ValueKey(1),
+              categories: _apiCategories,
+              isLoading: _isLoadingCategories,
+              error: _categoriesError,
+              selectedCategory: _selectedCategoryModel,
+              onCategorySelect: (c) => setState(() {
+                _selectedCategoryModel = c;
+                _textControllers.clear();
+                _dropdownValues.clear();
+              }),
+              textControllers: _textControllers,
+              dropdownValues: _dropdownValues,
+              onDropdownChange: (slug, value) {
+                _dropdownValues[slug] = value;
+                _formUpdateNotifier.value++;
+              },
+              estimatedPriceRange: _estimatedPriceRange,
+              estimatedPrice: _estimatedPrice,
+              termsAccepted: _termsAccepted,
+              onTermsChanged: (v) {
+                _termsAccepted = v;
+                _formUpdateNotifier.value++;
+              },
+              priceAccepted: _priceAccepted,
+              onPriceAcceptChanged: (v) {
+                _priceAccepted = v;
+                _formUpdateNotifier.value++;
+              },
+              onNext: (_termsAccepted && _priceAccepted && _allRequiredFilled)
+                  ? () => setState(() => _step = 2)
+                  : null,
+            );
+          },
         );
       case 2:
-        return _PaymentStep(
-          key: const ValueKey(2),
-          estimatedPrice: _estimatedPrice,
-          category: _selectedCategory ?? '',
-          hasGst: _hasGst,
-          onGstChanged: (v) => setState(() => _hasGst = v),
-          gstController: _gstController,
-          paymentMethod: _paymentMethod,
-          onPaymentMethodChanged: (v) => setState(() => _paymentMethod = v),
-          upiController: _upiController,
-          accountNameController: _accountNameController,
-          accountNumberController: _accountNumberController,
-          bankNameController: _bankNameController,
-          ifscController: _ifscController,
-          paymentReady: _paymentReady,
-          onNext: _paymentReady ? () => setState(() => _step = 3) : null,
-          onFieldChanged: () => setState(() {}),
+        return ValueListenableBuilder<int>(
+          valueListenable: _formUpdateNotifier,
+          builder: (context, value, child) {
+            return _PaymentStep(
+              key: const ValueKey(2),
+              estimatedPrice: _estimatedPrice,
+              category: _selectedCategoryModel?['name'] ?? '',
+              hasGst: _hasGst,
+              onGstChanged: (v) {
+                _hasGst = v;
+                _formUpdateNotifier.value++;
+              },
+              gstController: _gstController,
+              paymentMethod: _paymentMethod,
+              onPaymentMethodChanged: (v) {
+                _paymentMethod = v;
+                _formUpdateNotifier.value++;
+              },
+              upiController: _upiController,
+              accountNameController: _accountNameController,
+              accountNumberController: _accountNumberController,
+              bankNameController: _bankNameController,
+              ifscController: _ifscController,
+              paymentReady: _paymentReady,
+              onNext: _paymentReady ? () => setState(() => _step = 3) : null,
+              onFieldChanged: () => _formUpdateNotifier.value++,
+            );
+          },
         );
       case 3:
-        return _ScheduleStep(
-          key: const ValueKey(3),
-          fullNameController: _fullNameController,
-          emailController: _emailController,
-          mobileController: _mobileController,
-          altContactController: _altContactController,
-          addressController: _addressController,
-          areaController: _areaController,
-          pincodeController: _pincodeController,
-          pickupDate: _pickupDate,
-          onDateChanged: (d) => setState(() => _pickupDate = d),
-          timeSlot: _timeSlot,
-          onTimeSlotChanged: (t) => setState(() => _timeSlot = t),
-          scheduleReady: _scheduleReady,
-          onSubmit: _scheduleReady
-              ? () => showDialog(
-            context: context,
-            builder: (_) => const _SuccessDialog(),
-          )
-              : null,
-          onFieldChanged: () => setState(() {}),
+        return ValueListenableBuilder<int>(
+          valueListenable: _formUpdateNotifier,
+          builder: (context, value, child) {
+            return _ScheduleStep(
+              key: const ValueKey(3),
+              fullNameController: _fullNameController,
+              emailController: _emailController,
+              mobileController: _mobileController,
+              altContactController: _altContactController,
+              addressController: _addressController,
+              areaController: _areaController,
+              pincodeController: _pincodeController,
+              pickupDate: _pickupDate,
+              onDateChanged: (d) {
+                _pickupDate = d;
+                _formUpdateNotifier.value++;
+              },
+              timeSlot: _timeSlot,
+              onTimeSlotChanged: (t) {
+                _timeSlot = t;
+                _formUpdateNotifier.value++;
+              },
+              scheduleReady: _scheduleReady,
+              onSubmit: _scheduleReady ? _submitSellRequest : null,
+              onFieldChanged: () => _formUpdateNotifier.value++,
+            );
+          },
         );
       default:
         return const SizedBox();
@@ -394,14 +578,64 @@ class _ProgressBar extends StatelessWidget {
 
 class _UploadStep extends StatefulWidget {
   final VoidCallback onNext;
-  const _UploadStep({super.key, required this.onNext});
+  final List<String> uploadedImages;
+  final Function(List<String>) onImagesChanged;
+  
+  const _UploadStep({
+    super.key, 
+    required this.onNext,
+    required this.uploadedImages,
+    required this.onImagesChanged,
+  });
 
   @override
   State<_UploadStep> createState() => _UploadStepState();
 }
 
 class _UploadStepState extends State<_UploadStep> {
-  final List<String> _uploadedPaths = [];
+  bool _isUploading = false;
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    try {
+      final pickedFile = await picker.pickImage(source: source);
+      if (pickedFile != null) {
+        setState(() => _isUploading = true);
+        
+        final bytes = await pickedFile.readAsBytes();
+        final contentType = pickedFile.path.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+        
+        // 1. Get presigned URL
+        final presignedRes = await ApiService().getPresignedUrl(pickedFile.name, contentType);
+        final uploadUrl = presignedRes['uploadUrl'];
+        final fileUrl = presignedRes['fileUrl'];
+        
+        // 2. Upload directly to S3
+        await ApiService().uploadImageToS3(uploadUrl, bytes, contentType);
+        
+        // 3. Save URL to state
+        final newImages = List<String>.from(widget.uploadedImages)..add(fileUrl);
+        widget.onImagesChanged(newImages);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Image uploaded successfully!')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking/uploading image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -424,48 +658,125 @@ class _UploadStepState extends State<_UploadStep> {
 
           // Upload Area
           GestureDetector(
-            onTap: () {
-              // TODO: pick image from gallery/camera
+            onTap: _isUploading ? null : () {
+              showModalBottomSheet(
+                context: context,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                builder: (BuildContext context) {
+                  return SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Text('Choose Photo Source', style: AppTextStyles.headingMedium),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
+                          title: const Text('Open Camera'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            _pickImage(ImageSource.camera);
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.photo_library_rounded, color: AppColors.primary),
+                          title: const Text('Upload from Device'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            _pickImage(ImageSource.gallery);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  );
+                },
+              );
             },
             child: Container(
               width: double.infinity,
               height: 170,
               decoration: BoxDecoration(
-                color: AppColors.primaryLight.withOpacity(0.5),
+                color: AppColors.primaryLight.withAlpha(128),
                 borderRadius: BorderRadius.circular(AppRadius.xl),
                 border: Border.all(
-                  color: AppColors.primary.withOpacity(0.4),
+                  color: AppColors.primary.withAlpha(102),
                   width: 1.5,
                   style: BorderStyle.solid,
                 ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(14),
+              child: _isUploading
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.upload_rounded,
+                            color: AppColors.primary,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text('Tap to upload photos', style: AppTextStyles.headingMedium),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'PNG, JPG up to 10MB · Max 5 images',
+                          style: AppTextStyles.bodySmall,
+                        ),
+                      ],
                     ),
-                    child: const Icon(
-                      Icons.upload_rounded,
-                      color: AppColors.primary,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('Tap to upload photos', style: AppTextStyles.headingMedium),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'PNG, JPG up to 10MB · Max 5 images',
-                    style: AppTextStyles.bodySmall,
-                  ),
-                ],
-              ),
             ),
           ),
+          if (widget.uploadedImages.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: widget.uploadedImages.map((url) {
+                return Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        url,
+                        width: 70,
+                        height: 70,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () {
+                          final newImages = List<String>.from(widget.uploadedImages)..remove(url);
+                          widget.onImagesChanged(newImages);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ],
           const SizedBox(height: 16),
 
           // Photo tips
@@ -522,42 +833,8 @@ class _UploadStepState extends State<_UploadStep> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.add_rounded, size: 16),
-                  label: const Text('Add Another Item'),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.border),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.table_chart_rounded, size: 16),
-                  label: const Text('Upload via Excel'),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.border),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 24),
+
 
           SizedBox(
             width: double.infinity,
@@ -596,21 +873,14 @@ class _UploadStepState extends State<_UploadStep> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _DeviceDetailsStep extends StatelessWidget {
-  final List<(String, String)> categories;
-  final String? selectedCategory;
-  final Function(String) onCategorySelect;
-  final String condition;
-  final Function(String) onConditionChange;
-  final String purchaseYear;
-  final Function(String) onYearChange;
-  final TextEditingController brandController;
-  final TextEditingController modelController;
-  final TextEditingController storageController;
-  final TextEditingController ramController;
-  final TextEditingController romController;
-  final TextEditingController capacityController;
-  final TextEditingController sizeController;
-  final TextEditingController tonnageController;
+  final List<Map<String, dynamic>> categories;
+  final bool isLoading;
+  final String? error;
+  final Map<String, dynamic>? selectedCategory;
+  final Function(Map<String, dynamic>) onCategorySelect;
+  final Map<String, TextEditingController> textControllers;
+  final Map<String, String> dropdownValues;
+  final Function(String, String) onDropdownChange;
   final String estimatedPriceRange;
   final int estimatedPrice;
   final bool termsAccepted;
@@ -622,20 +892,13 @@ class _DeviceDetailsStep extends StatelessWidget {
   const _DeviceDetailsStep({
     super.key,
     required this.categories,
+    required this.isLoading,
+    this.error,
     required this.selectedCategory,
     required this.onCategorySelect,
-    required this.condition,
-    required this.onConditionChange,
-    required this.purchaseYear,
-    required this.onYearChange,
-    required this.brandController,
-    required this.modelController,
-    required this.storageController,
-    required this.ramController,
-    required this.romController,
-    required this.capacityController,
-    required this.sizeController,
-    required this.tonnageController,
+    required this.textControllers,
+    required this.dropdownValues,
+    required this.onDropdownChange,
     required this.estimatedPriceRange,
     required this.estimatedPrice,
     required this.termsAccepted,
@@ -658,54 +921,66 @@ class _DeviceDetailsStep extends StatelessWidget {
             style: AppTextStyles.headingMedium,
           ),
           const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              childAspectRatio: 0.85,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            itemCount: categories.length,
-            itemBuilder: (_, i) {
-              final isSelected = selectedCategory == categories[i].$2;
-              return GestureDetector(
-                onTap: () => onCategorySelect(categories[i].$2),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primaryLight : AppColors.bgCard,
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : AppColors.border,
-                      width: isSelected ? 1.5 : 1,
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            )
+          else if (error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Text(error!, style: const TextStyle(color: Colors.red)),
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                childAspectRatio: 0.85,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: categories.length,
+              itemBuilder: (_, i) {
+                final cat = categories[i];
+                final isSelected = selectedCategory?['id'] == cat['id'];
+                return GestureDetector(
+                  onTap: () => onCategorySelect(cat),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppColors.primaryLight : AppColors.bgCard,
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                      border: Border.all(
+                        color: isSelected ? AppColors.primary : AppColors.border,
+                        width: isSelected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(cat['emoji'] ?? '', style: const TextStyle(fontSize: 22)),
+                        const SizedBox(height: 4),
+                        Text(
+                          cat['name'] ?? '',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected
+                                ? AppColors.primaryDark
+                                : AppColors.textSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(categories[i].$1, style: const TextStyle(fontSize: 22)),
-                      const SizedBox(height: 4),
-                      Text(
-                        categories[i].$2,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected
-                              ? AppColors.primaryDark
-                              : AppColors.textSecondary,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
+                );
+              },
+            ),
           const SizedBox(height: 20),
 
           // ── AI Price Estimate Banner ───────────────────────────────────
@@ -715,7 +990,7 @@ class _DeviceDetailsStep extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.primaryLight,
               borderRadius: BorderRadius.circular(AppRadius.lg),
-              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+              border: Border.all(color: AppColors.primary.withAlpha(77)),
             ),
             child: Row(
               children: [
@@ -746,7 +1021,7 @@ class _DeviceDetailsStep extends StatelessWidget {
                           key: ValueKey(estimatedPriceRange),
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.primaryDark.withOpacity(0.7),
+                            color: AppColors.primaryDark.withAlpha(179),
                           ),
                         ),
                       ),
@@ -760,160 +1035,105 @@ class _DeviceDetailsStep extends StatelessWidget {
 
           // ── Form Fields ────────────────────────────────────────────────
           if (selectedCategory != null)
-            ...(() {
-              List<(String, String, TextEditingController)> fields = [];
-              if (selectedCategory == 'Air Conditioner') {
-                fields = [
-                  ('Brand', 'e.g. Voltas, LG, Daikin', brandController),
-                  ('Capacity (Tons)', 'e.g. 1.5 Ton, 2 Ton', tonnageController),
-                ];
-              } else if (selectedCategory == 'Refrigerator') {
-                fields = [
-                  ('Brand', 'e.g. Samsung, LG, Whirlpool', brandController),
-                  ('Capacity (Liters)', 'e.g. 250L, 500L', capacityController),
-                ];
-              } else if (selectedCategory == 'Mobile Phone') {
-                fields = [
-                  ('Brand', 'e.g. Apple, Samsung, OnePlus', brandController),
-                  ('RAM', 'e.g. 8GB, 12GB', ramController),
-                  ('ROM (Storage)', 'e.g. 128GB, 256GB', romController),
-                ];
-              } else if (selectedCategory == 'Television') {
-                fields = [
-                  ('Brand', 'e.g. Sony, Samsung, LG', brandController),
-                  ('Size (Inches)', 'e.g. 32", 55"', sizeController),
-                ];
+            ...(selectedCategory!['attributes'] as List<dynamic>? ?? []).map((attrObj) {
+              final attr = attrObj as Map<String, dynamic>;
+              final isRequired = attr['isRequired'] == true;
+              final name = attr['name'] ?? '';
+              final slug = attr['slug'] ?? '';
+              final inputType = attr['inputType'] ?? 'text';
+              final options = (attr['options'] as List<dynamic>? ?? []).cast<String>();
+
+              if (inputType == 'dropdown') {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        text: name,
+                        style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary),
+                        children: [
+                          if (isRequired)
+                            const TextSpan(
+                              text: ' *',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      initialValue: dropdownValues[slug],
+                      items: options
+                          .map((opt) => DropdownMenuItem(value: opt, child: Text(opt)))
+                          .toList(),
+                      onChanged: (v) => v != null ? onDropdownChange(slug, v) : null,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: AppColors.bgCard,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                          borderSide: const BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                          borderSide: const BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                );
               } else {
-                fields = [
-                  ('Brand', 'e.g. Dell, HP, Lenovo', brandController),
-                  ('Model', 'e.g. Inspiron, ThinkPad', modelController),
-                ];
+                TextEditingController ctrl = textControllers.putIfAbsent(slug, () => TextEditingController());
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        text: name,
+                        style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary),
+                        children: [
+                          if (isRequired)
+                            const TextSpan(
+                              text: ' *',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: ctrl,
+                      onChanged: (v) => onDropdownChange(slug, v),
+                      decoration: InputDecoration(
+                        hintText: 'Enter $name',
+                        filled: true,
+                        fillColor: AppColors.bgCard,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                          borderSide: const BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                          borderSide: const BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                );
               }
-              return fields;
-            })().map(
-                  (f) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  f.$1,
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: f.$3,
-                  decoration: InputDecoration(
-                    hintText: f.$2,
-                    filled: true,
-                    fillColor: AppColors.bgCard,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                      borderSide: const BorderSide(color: AppColors.border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                      borderSide: const BorderSide(color: AppColors.border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                      borderSide: const BorderSide(
-                        color: AppColors.primary,
-                        width: 1.5,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 14,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-              ],
-            ),
-          ),
-
-          // ── Condition ──────────────────────────────────────────────────
-          Text(
-            'Condition',
-            style: AppTextStyles.labelMedium.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: ['Excellent', 'Good', 'Fair', 'Poor']
-                .asMap()
-                .entries
-                .map((e) {
-              final isSelected = condition == e.value;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => onConditionChange(e.value),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: EdgeInsets.only(right: e.key < 3 ? 6 : 0),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primaryLight : AppColors.bgCard,
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                      border: Border.all(
-                        color: isSelected ? AppColors.primary : AppColors.border,
-                      ),
-                    ),
-                    child: Text(
-                      e.value,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected
-                            ? AppColors.primaryDark
-                            : AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 14),
-
-          // ── Purchase Year ──────────────────────────────────────────────
-          Text(
-            'Purchase Year',
-            style: AppTextStyles.labelMedium.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
+            }),
           const SizedBox(height: 6),
-          DropdownButtonFormField<String>(
-            value: purchaseYear,
-            items: [
-              '2024', '2023', '2022', '2021', '2020',
-              '2019', '2018', '2017', 'Before 2017',
-            ]
-                .map((y) => DropdownMenuItem(value: y, child: Text(y)))
-                .toList(),
-            onChanged: (v) => v != null ? onYearChange(v) : null,
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: AppColors.bgCard,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
 
           // ── Total Estimated Value card ─────────────────────────────────
           Container(
@@ -978,7 +1198,7 @@ class _DeviceDetailsStep extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '1 item(s) — ${selectedCategory ?? ''}',
+                        '1 item(s) — ${selectedCategory?['name'] ?? ''}',
                         style: const TextStyle(
                           fontSize: 11,
                           color: AppColors.textSecondary,
@@ -1694,7 +1914,7 @@ class _ScheduleStep extends StatelessWidget {
                   )),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: timeSlot,
+                    initialValue: timeSlot,
                     hint: const Text('Select time slot',
                       style: TextStyle(fontSize: 13, color: AppColors.textMuted),
                     ),
@@ -1793,7 +2013,7 @@ class _CheckboxCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: checked && highlight
-              ? AppColors.primaryLight.withOpacity(0.5)
+              ? AppColors.primaryLight.withAlpha(128)
               : AppColors.bgCard,
           borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
@@ -1842,7 +2062,7 @@ class _CheckboxCard extends StatelessWidget {
                       ),
                     ),
                   )),
-                  if (child != null) child!,
+                  ?child,
                 ],
               ),
             ),
@@ -1888,7 +2108,7 @@ class _PaymentMethodCard extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primaryLight.withOpacity(0.4) : AppColors.bgCard,
+          color: selected ? AppColors.primaryLight.withValues(alpha: 0.4) : AppColors.bgCard,
           borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
             color: selected ? AppColors.primary : AppColors.border,
@@ -1964,7 +2184,7 @@ class _PaymentMethodCard extends StatelessWidget {
                   ),
               ],
             ),
-            if (child != null) child!,
+            ?child,
           ],
         ),
       ),
@@ -2167,7 +2387,13 @@ class _SuccessDialog extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 2)),
+                    (route) => false,
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
