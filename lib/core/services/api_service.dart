@@ -13,7 +13,7 @@ class ApiService {
 
   /// Handle localhost URL correctly for Android Emulator vs other platforms
   String get baseUrl {
-    return Platform.isAndroid ? 'http://192.168.1.6:3000' : 'http://192.168.1.6:3000';
+    return Platform.isAndroid ? 'https://ewasteapi.techgigs.in' : 'https://ewasteapi.techgigs.in';
   }
 
   /// Sends the Firebase ID token to the backend to authenticate the user
@@ -158,6 +158,7 @@ class ApiService {
   Future<http.Response> getMyRequests() async {
     final url = Uri.parse('$baseUrl/api/seller/my-requests');
     final token = await SessionManager().getAccessToken();
+    print("token--$token");
     
     debugPrint('--- MY REQUESTS ---');
     debugPrint('GET: $url');
@@ -224,6 +225,114 @@ class ApiService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     } else {
       throw Exception('Failed to load profile data: ${response.statusCode}');
+    }
+  }
+
+  /// Updates the seller's profile
+  Future<void> updateProfile(Map<String, dynamic> data) async {
+    final url = Uri.parse('$baseUrl/api/seller/profile');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- UPDATE PROFILE REQUEST ---');
+    debugPrint('PUT: $url');
+    debugPrint('Payload: ${jsonEncode(data)}');
+    
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- UPDATE PROFILE RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('Failed to update profile data: ${response.statusCode}');
+    }
+  }
+
+  /// Adds a new address for the seller
+  Future<void> addAddress(Map<String, dynamic> data) async {
+    final url = Uri.parse('$baseUrl/api/seller/addresses');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- ADD ADDRESS REQUEST ---');
+    debugPrint('POST: $url');
+    debugPrint('Payload: ${jsonEncode(data)}');
+    
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- ADD ADDRESS RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to add address: ${response.statusCode}');
+    }
+  }
+
+  /// Edits an existing address for the seller
+  Future<void> editAddress(int id, Map<String, dynamic> data) async {
+    final url = Uri.parse('$baseUrl/api/seller/addresses/edit/$id');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- EDIT ADDRESS REQUEST ---');
+    debugPrint('PUT: $url');
+    debugPrint('Payload: ${jsonEncode(data)}');
+    
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- EDIT ADDRESS RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to edit address: ${response.statusCode}');
+    }
+  }
+
+  /// Deletes an address for the seller
+  Future<void> deleteAddress(int id) async {
+    final url = Uri.parse('$baseUrl/api/seller/addresses/delete/$id');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- DELETE ADDRESS REQUEST ---');
+    debugPrint('DELETE: $url');
+    
+    final response = await http.delete(
+      url,
+      headers: {
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- DELETE ADDRESS RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete address: ${response.statusCode}');
     }
   }
 

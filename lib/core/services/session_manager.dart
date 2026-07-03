@@ -53,6 +53,11 @@ class SessionManager {
     return prefs.getString(_keyPhoneNumber);
   }
 
+  Future<String?> getEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyEmail);
+  }
+
   Future<bool> isLoggedIn() async {
     final token = await getAccessToken();
     return token != null && token.isNotEmpty;

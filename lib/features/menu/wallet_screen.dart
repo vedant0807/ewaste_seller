@@ -70,12 +70,11 @@ class _WalletScreenState extends State<WalletScreen> {
     return Scaffold(
       backgroundColor: AppColors.bgPage,
       appBar: AppBar(
-        title: const Text('My Wallet'),
-        backgroundColor: AppColors.bgPage,
+        backgroundColor: AppColors.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
-        centerTitle: false,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
-        titleTextStyle: AppTextStyles.displayMedium.copyWith(fontSize: 22),
+        centerTitle: true,
+        title: Text('My Wallet', style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
       ),
       body: SafeArea(
         child: Column(

@@ -6,6 +6,8 @@ class AppColors {
   static const Color primaryDark = Color(0xFF059669);
   static const Color primaryLight = Color(0xFFD1FAE5);
   static const Color primaryGlow = Color(0xFF34D399);
+  static const Color red = Colors.red;
+
 
   // Backgrounds
   static const Color bgPage = Color(0xFFF8FAFC);

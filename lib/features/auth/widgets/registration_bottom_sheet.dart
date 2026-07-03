@@ -23,8 +23,67 @@ class _RegistrationBottomSheetState extends State<RegistrationBottomSheet> {
   bool _loading = false;
   String? _pincodeError;
 
+  bool? _isPincodeServiceable;
+  bool _isCheckingPincode = false;
+  String _pincodeErrorMsg = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _pincodeController.addListener(_onPincodeChanged);
+  }
+
+  void _onPincodeChanged() async {
+    if (_pincodeController.text.length == 6) {
+      setState(() {
+        _isCheckingPincode = true;
+        _isPincodeServiceable = null;
+      });
+      
+      try {
+        final pinRes = await ApiService().checkPincode(_pincodeController.text.trim());
+        bool isServiceable = pinRes.statusCode == 200;
+        String errorMsg = 'Not serviceable';
+        
+        if (isServiceable) {
+          try {
+            final json = jsonDecode(pinRes.body);
+            if (json['serviceAvailable'] == false) {
+              isServiceable = false;
+              if (json['message'] != null) errorMsg = json['message'];
+            }
+          } catch (_) {}
+        }
+
+        if (mounted) {
+          setState(() {
+            _isCheckingPincode = false;
+            _isPincodeServiceable = isServiceable;
+            _pincodeErrorMsg = errorMsg;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isCheckingPincode = false;
+            _isPincodeServiceable = false;
+            _pincodeErrorMsg = 'Failed to check pincode';
+          });
+        }
+      }
+    } else {
+      if (_isPincodeServiceable != null || _isCheckingPincode) {
+        setState(() {
+          _isCheckingPincode = false;
+          _isPincodeServiceable = null;
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _pincodeController.removeListener(_onPincodeChanged);
     _nameController.dispose();
     _pincodeController.dispose();
     super.dispose();
@@ -48,44 +107,36 @@ class _RegistrationBottomSheetState extends State<RegistrationBottomSheet> {
       return;
     }
 
+    if (_isPincodeServiceable != true) {
+      _showSnack('Please ensure your pincode is serviceable');
+      return;
+    }
+
     setState(() {
       _loading = true;
       _pincodeError = null;
     });
 
     try {
-      // 1. Check Pincode
-      final checkRes = await ApiService().checkPincode(pincode);
-      if (checkRes.statusCode >= 200 && checkRes.statusCode < 300) {
-        final checkData = jsonDecode(checkRes.body);
-        if (checkData['serviceAvailable'] == true) {
-          // 2. Register User
-          final regRes = await ApiService().registerSeller(name, widget.phoneNumber, pincode);
-          
-          if (regRes.statusCode >= 200 && regRes.statusCode < 300) {
-            final regData = jsonDecode(regRes.body);
-            if (regData['success'] == true) {
-              await SessionManager().saveSession(regData);
-              if (!mounted) return;
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const MainScreen()),
-                (route) => false,
-              );
-              return;
-            } else {
-              _showSnack(regData['message'] ?? 'Registration failed');
-            }
-          } else {
-            _showSnack('Failed to register: ${regRes.statusCode}');
-          }
+      // Register User
+      final regRes = await ApiService().registerSeller(name, widget.phoneNumber, pincode);
+      
+      if (regRes.statusCode >= 200 && regRes.statusCode < 300) {
+        final regData = jsonDecode(regRes.body);
+        if (regData['success'] == true) {
+          await SessionManager().saveSession(regData);
+          if (!mounted) return;
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+            (route) => false,
+          );
+          return;
         } else {
-          setState(() {
-            _pincodeError = checkData['message'] ?? 'Service not available in this area';
-          });
+          _showSnack(regData['message'] ?? 'Registration failed');
         }
       } else {
-        _showSnack('Failed to check pincode: ${checkRes.statusCode}');
+        _showSnack('Failed to register: ${regRes.statusCode}');
       }
     } catch (e) {
       debugPrint('Registration error: $e');
@@ -205,7 +256,35 @@ class _RegistrationBottomSheetState extends State<RegistrationBottomSheet> {
                     maxLength: 6,
                     hasError: _pincodeError != null,
                   ),
-                  if (_pincodeError != null) ...[
+                  if (_isCheckingPincode) ...[
+                    const SizedBox(height: 4),
+                    const Row(
+                      children: [
+                        SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+                        SizedBox(width: 8),
+                        Text('Checking service availability...', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      ],
+                    ),
+                  ] else if (_isPincodeServiceable == true) ...[
+                    const SizedBox(height: 4),
+                    const Row(
+                      children: [
+                        Icon(Icons.check_circle_rounded, color: Colors.green, size: 14),
+                        SizedBox(width: 4),
+                        Text('Service available', style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ] else if (_isPincodeServiceable == false) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.cancel_rounded, color: Colors.red, size: 14),
+                        const SizedBox(width: 4),
+                        Expanded(child: Text(_pincodeErrorMsg, style: const TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold))),
+                      ],
+                    ),
+                  ],
+                  if (_pincodeError != null && _isPincodeServiceable == null) ...[
                     const SizedBox(height: 6),
                     Row(
                       children: [

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/core/services/api_service.dart';
+import 'package:seller_ewaste/features/requests/request_detail_screen.dart';
 
 class RequestsScreen extends StatefulWidget {
   const RequestsScreen({super.key});
@@ -77,79 +78,76 @@ class _RequestsScreenState extends State<RequestsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgPage,
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
+        centerTitle: true,
+        title: Text('My Requests', style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
+        actions: [
+          if (!_isLoading && _error == null)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                  ),
+                  child: Text(
+                    '${_requests.where((r) => (r['statusStep'] as int? ?? 1) < 6).length} Active',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.xl,
-                AppSpacing.xl,
-                AppSpacing.md,
-              ),
-              child: Row(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('My Requests', style: AppTextStyles.displayMedium),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Track the progress of your sell requests.',
-                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  if (!_isLoading && _error == null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(AppRadius.full),
-                      ),
-                      child: Text(
-                        '${_requests.where((r) => (r['statusStep'] as int? ?? 1) < 6).length} Active',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryDark,
-                        ),
-                      ),
-                    ),
-                ],
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: 8),
+              child: Text(
+                'Track the progress of your sell requests.',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
               ),
             ),
 
             // Tabs
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.bgMuted,
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                ),
-                child: TabBar(
-                  controller: _tabs,
-                  indicator: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: AppColors.textSecondary,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                  dividerColor: Colors.transparent,
-                  padding: const EdgeInsets.all(4),
-                  tabs: const [
-                    Tab(text: 'All'),
-                    Tab(text: 'Active'),
-                    Tab(text: 'Completed'),
-                  ],
-                ),
-              ),
-            ),
+            // Padding(
+            //   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+            //   child: Container(
+            //     decoration: BoxDecoration(
+            //       color: AppColors.bgMuted,
+            //       borderRadius: BorderRadius.circular(AppRadius.lg),
+            //     ),
+            //     child: TabBar(
+            //       controller: _tabs,
+            //       indicator: BoxDecoration(
+            //         color: AppColors.primary,
+            //         borderRadius: BorderRadius.circular(AppRadius.md),
+            //       ),
+            //       indicatorSize: TabBarIndicatorSize.tab,
+            //       labelColor: Colors.white,
+            //       unselectedLabelColor: AppColors.textSecondary,
+            //       labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            //       dividerColor: Colors.transparent,
+            //       padding: const EdgeInsets.all(4),
+            //       tabs: const [
+            //         Tab(text: 'All'),
+            //         Tab(text: 'Active'),
+            //         Tab(text: 'Completed'),
+            //       ],
+            //     ),
+            //   ),
+            // ),
             const SizedBox(height: 12),
 
             Expanded(
@@ -214,7 +212,10 @@ class _RequestsList extends StatelessWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
               itemCount: filtered.length,
-              itemBuilder: (_, i) => _RequestCard(data: filtered[i] as Map<String, dynamic>),
+              itemBuilder: (_, i) => _RequestCard(
+                data: filtered[i] as Map<String, dynamic>,
+                initiallyExpanded: i == 0,
+              ),
             ),
     );
   }
@@ -222,7 +223,11 @@ class _RequestsList extends StatelessWidget {
 
 class _RequestCard extends StatelessWidget {
   final Map<String, dynamic> data;
-  const _RequestCard({required this.data});
+  final bool initiallyExpanded; // Kept for signature compatibility if needed, but unused
+  
+  const _RequestCard({required this.data, this.initiallyExpanded = false});
+
+
 
   String _formatDate(String? isoString) {
     if (isoString == null) return '';
@@ -241,11 +246,13 @@ class _RequestCard extends StatelessWidget {
     final reqId = data['requestNumber'] ?? '';
     final date = _formatDate(data['createdAt']);
     final price = data['estimatedPrice']?.toString() ?? '0';
-    final step = data['statusStep'] as int? ?? 1;
     final payoutMethod = data['payout']?['preferredMethod'] ?? 'Wallet';
+    final status = data['status']?.toString().toUpperCase() ?? 'PLACED';
 
     return GestureDetector(
-      onTap: () => _showRequestDetail(context, data),
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => RequestDetailScreen(data: data)));
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(20),
@@ -261,208 +268,111 @@ class _RequestCard extends StatelessWidget {
           ],
           border: Border.all(color: AppColors.border),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        device,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          device,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$reqId-$date',
+                          maxLines: 1,
+
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F5E9), // Light green
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$payoutMethod',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF2E7D32),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '₹$price',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF10B981),
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppColors.textSecondary,
+                            size: 20,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '$reqId  ·  $date',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textMuted,
+                      SizedBox(height: 4,),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: status == 'REJECTED' ? Colors.red.withValues(alpha: 0.1) : AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          status,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: status == 'REJECTED' ? Colors.red : AppColors.primaryDark,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F5E9), // Light green
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.currency_rupee_rounded, size: 10, color: Color(0xFF2E7D32)),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Paid in $payoutMethod',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2E7D32),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '₹$price',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF10B981),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            if (data['status']?.toString().toLowerCase() == 'rejected')
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.cancel_rounded, color: Colors.red, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Request Rejected',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              _TrackerProgress(currentStep: step, payoutMethod: payoutMethod),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
-
-  void _showRequestDetail(BuildContext context, Map<String, dynamic> data) {
-    // We can keep the detail sheet empty for now or format it similarly
-    // It wasn't in the screenshot, but we shouldn't break the feature.
-  }
 }
 
-class _TrackerProgress extends StatelessWidget {
-  final int currentStep;
-  final String payoutMethod;
-
-  const _TrackerProgress({required this.currentStep, required this.payoutMethod});
-
-  @override
-  Widget build(BuildContext context) {
-    final steps = [
-      (label: 'Requested', color: const Color(0xFF6B7280), icon: Icons.check_rounded),
-      (label: 'Approved', color: const Color(0xFF3B82F6), icon: Icons.check_rounded),
-      (label: 'Scheduled', color: const Color(0xFFF59E0B), icon: Icons.check_rounded),
-      (label: 'Collected', color: const Color(0xFF8B5CF6), icon: Icons.check_rounded),
-      (label: 'Paid', color: const Color(0xFF10B981), icon: Icons.currency_rupee_rounded),
-      (label: 'Certificate', color: const Color(0xFFD1D5DB), icon: Icons.workspace_premium_rounded),
-    ];
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: List.generate(steps.length, (i) {
-        final isCompleted = i < currentStep - 1;
-        final isCurrent = i == currentStep - 1;
-        final isFuture = i > currentStep - 1;
-        
-        final stepData = steps[i];
-        final nodeColor = isFuture ? const Color(0xFFE5E7EB) : stepData.color;
-        
-        final leftLineColor = i == 0 ? Colors.transparent : (i < currentStep ? const Color(0xFF10B981) : const Color(0xFFE5E7EB));
-        final rightLineColor = i == steps.length - 1 ? Colors.transparent : (i < currentStep - 1 ? const Color(0xFF10B981) : const Color(0xFFE5E7EB));
-
-        return Expanded(
-          child: Column(
-            children: [
-              SizedBox(
-                height: 36,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: Container(height: 2, color: leftLineColor)),
-                        Expanded(child: Container(height: 2, color: rightLineColor)),
-                      ],
-                    ),
-                    Container(
-                      width: isCurrent ? 36 : 24,
-                      height: isCurrent ? 36 : 24,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isCurrent ? nodeColor.withValues(alpha: 0.2) : Colors.transparent,
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isFuture ? Colors.white : nodeColor,
-                            border: isFuture ? Border.all(color: nodeColor, width: 2) : null,
-                          ),
-                          child: Icon(
-                            isCompleted ? Icons.check_rounded : (isCurrent ? stepData.icon : null),
-                            size: 14,
-                            color: isFuture ? Colors.transparent : Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                stepData.label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  height: 1.1,
-                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
-                  color: isCurrent ? nodeColor : AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        );
-      }),
-    );
-  }
-}

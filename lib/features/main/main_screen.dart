@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/widgets/bottom_nav_bar.dart';
 import 'package:seller_ewaste/features/dashboard/dashboard_screen.dart';
 import 'package:seller_ewaste/features/menu/wallet_screen.dart';
-import 'package:seller_ewaste/features/sell/sell_screen.dart';
+import 'package:seller_ewaste/features/sell/sell_flow.dart';
 import 'package:seller_ewaste/features/requests/requests_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -24,7 +24,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final _screens = const [
     DashboardScreen(),
-    SellScreen(),
+    SellFlowEntryPoint(),
     RequestsScreen(),
     WalletScreen(),
   ];

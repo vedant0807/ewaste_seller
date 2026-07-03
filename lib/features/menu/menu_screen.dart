@@ -3,6 +3,7 @@ import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/features/auth/login_screen.dart';
 import 'package:seller_ewaste/features/orders/orders_screen.dart';
 import 'package:seller_ewaste/features/menu/profile_screen.dart';
+import 'package:seller_ewaste/features/menu/my_addresses_screen.dart';
 import 'package:seller_ewaste/features/menu/wallet_screen.dart';
 import 'package:seller_ewaste/features/menu/donate_ewaste_screen.dart';
 import 'package:seller_ewaste/features/menu/corporate_inquiry_screen.dart';
@@ -39,11 +40,14 @@ class _MenuScreenState extends State<MenuScreen> {
   @override
   Widget build(BuildContext context) {
     final items = [
-      (Icons.receipt_long_rounded, 'My Orders', () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));
-      }),
+      // (Icons.receipt_long_rounded, 'My Orders', () {
+      //   Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));
+      // }),
       (Icons.person_outline_rounded, 'My Profile', () {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+      }),
+      (Icons.location_on_outlined, 'My Addresses', () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const MyAddressesScreen()));
       }),
       (Icons.account_balance_wallet_rounded, 'My Wallet', () {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletScreen()));
@@ -74,7 +78,7 @@ class _MenuScreenState extends State<MenuScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        iconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: AppTextStyles.headingMedium.copyWith(fontSize: 18),
       ),
       body: SafeArea(

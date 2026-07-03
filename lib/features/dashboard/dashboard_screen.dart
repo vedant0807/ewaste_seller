@@ -68,10 +68,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bgPage,
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
+          onPressed: () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const MenuScreen()));
+          },
+        ),
+        title: Text('Dashboard', style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
+      ),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            SliverToBoxAdapter(child: _DashboardHeader()),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: 8),
+                child: Text('Welcome back! Here\'s your overview.', style: AppTextStyles.bodyMedium.copyWith(fontSize: 14)),
+              ),
+            ),
             if (_summary != null)
               SliverToBoxAdapter(child: _DashboardCardsSection(summary: _summary!)),
             if (_summary!['recentRequests'] != null && (_summary!['recentRequests'] as List).isNotEmpty)
@@ -83,75 +101,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-class _DashboardHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xl,
-        AppSpacing.xl,
-        AppSpacing.xl,
-        0,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MenuScreen(),
-                    ),
-                  );
-                },
-                child: const Icon(
-                  Icons.menu_rounded,
-                  color: AppColors.textPrimary,
-                  size: 28,
-                ),
-              ),
-              // GestureDetector(
-              //   onTap: () => _showProfileSheet(context),
-              //   child: Container(
-              //     width: 44,
-              //     height: 44,
-              //     decoration: const BoxDecoration(
-              //       color: AppColors.primary,
-              //       shape: BoxShape.circle,
-              //     ),
-              //     child: const Icon(
-              //       Icons.person_rounded,
-              //       color: Colors.white,
-              //       size: 24,
-              //     ),
-              //   ),
-              // ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Dashboard',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Welcome back! Here\'s your overview.',
-            style: AppTextStyles.bodyMedium.copyWith(fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _DashboardCardsSection extends StatelessWidget {
   final Map<String, dynamic> summary;
@@ -327,7 +276,7 @@ class _RecentRequestsSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Recent Activity', style: AppTextStyles.headingMedium),
-            const SizedBox(height: 24),
+            const SizedBox(height: 10),
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -346,7 +295,11 @@ class _RecentRequestsSection extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            (r['device']?.toString() ?? '').isNotEmpty ? r['device'].toString() : 'Request ${r['id']}',
+                            (r['device']?.toString() ?? '').isNotEmpty
+                                ? r['device'].toString()
+                                : 'Request ${r['id']}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,

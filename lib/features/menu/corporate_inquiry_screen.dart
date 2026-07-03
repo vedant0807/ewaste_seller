@@ -301,7 +301,7 @@ class _CorporateInquiryScreenState extends State<CorporateInquiryScreen> {
         backgroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
         centerTitle: false,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        iconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: AppTextStyles.headingMedium.copyWith(fontSize: 22),
       ),
       body: SingleChildScrollView(
