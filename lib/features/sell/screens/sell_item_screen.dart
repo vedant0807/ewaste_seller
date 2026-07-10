@@ -170,14 +170,43 @@ class _SellItemScreenState extends State<SellItemScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bgPage,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 0,
-        centerTitle: true,
-        title: Text('Item Details', style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
+    return WillPopScope(
+      onWillPop: () async {
+        if (widget.requestData.selectedCategoryModel != null) {
+          setState(() {
+            widget.requestData.selectedCategoryModel = null;
+            widget.requestData.textValues.clear();
+            widget.requestData.dropdownValues.clear();
+            for (var c in _textControllers.values) { c.clear(); }
+          });
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.bgPage,
+        appBar: AppBar(
+          backgroundColor: AppColors.primary,
+          iconTheme: const IconThemeData(color: Colors.white),
+          elevation: 0,
+          leading: widget.requestData.selectedCategoryModel != null
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () {
+                    setState(() {
+                      widget.requestData.selectedCategoryModel = null;
+                      widget.requestData.textValues.clear();
+                      widget.requestData.dropdownValues.clear();
+                      for (var c in _textControllers.values) { c.clear(); }
+                    });
+                  },
+                )
+              : null,
+          centerTitle: true,
+          title: Text(
+            widget.requestData.selectedCategoryModel != null ? 'Item Details' : 'Sell E-Waste',
+            style: AppTextStyles.headingMedium.copyWith(color: Colors.white),
+          ),
       ),
       body: Column(
         children: [
@@ -589,6 +618,7 @@ class _SellItemScreenState extends State<SellItemScreen> {
             ),
         ],
       ),
+    ),
     );
   }
 }

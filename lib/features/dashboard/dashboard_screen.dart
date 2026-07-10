@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/features/menu/menu_screen.dart';
 import 'package:seller_ewaste/core/services/api_service.dart';
+import 'package:seller_ewaste/features/menu/wallet_screen.dart';
+import 'package:seller_ewaste/features/orders/orders_screen.dart';
+import 'package:seller_ewaste/features/requests/requests_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -68,16 +71,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bgPage,
+      drawer: const MenuScreen(),
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
-          onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const MenuScreen()));
-          },
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
+            onPressed: () {
+              Scaffold.of(context).openDrawer();
+            },
+          ),
         ),
         title: Text('Dashboard', style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
       ),
@@ -129,6 +135,9 @@ class _DashboardCardsSection extends StatelessWidget {
               iconColor: Colors.white,
               value: '${summary['totalRequests'] ?? 0}',
               title: 'Total Requests',
+              onTap:() {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => RequestsScreen(),));
+              },
             ),
             _StatCard(
               icon: Icons.local_shipping_outlined,
@@ -143,6 +152,9 @@ class _DashboardCardsSection extends StatelessWidget {
               iconColor: Colors.white,
               value: '${summary['completedOrders'] ?? 0}',
               title: 'Completed Orders',
+              onTap:() {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => OrdersScreen(),));
+              },
             ),
             _StatCard(
               icon: Icons.account_balance_wallet_outlined,
@@ -150,6 +162,9 @@ class _DashboardCardsSection extends StatelessWidget {
               iconColor: Colors.white,
               value: '₹${summary['availableEarnings'] ?? 0}',
               title: 'Available Earnings',
+              onTap:() {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => WalletScreen(),));
+              },
             ),
             _StatCard(
               icon: Icons.money_off_rounded,
@@ -157,6 +172,9 @@ class _DashboardCardsSection extends StatelessWidget {
               iconColor: Colors.white,
               value: '₹${summary['totalDebited'] ?? 0}',
               title: 'Total Debited',
+              onTap:() {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => WalletScreen(),));
+              },
             ),
           ],
         );
@@ -171,69 +189,79 @@ class _StatCard extends StatelessWidget {
   final Color iconColor;
   final String value;
   final String title;
+  final VoidCallback? onTap;
 
   const _StatCard({
+    super.key,
     required this.icon,
     required this.iconBgColor,
     required this.iconColor,
     required this.value,
     required this.title,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: iconBgColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: iconColor, size: 24),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                  height: 1.1,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textMuted,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: iconBgColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 24),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textMuted,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

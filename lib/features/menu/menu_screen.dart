@@ -40,26 +40,32 @@ class _MenuScreenState extends State<MenuScreen> {
   @override
   Widget build(BuildContext context) {
     final items = [
-      // (Icons.receipt_long_rounded, 'My Orders', () {
-      //   Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));
-      // }),
+      (Icons.receipt_long_rounded, 'My Orders', () {
+        Navigator.pop(context);
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));
+      }),
       (Icons.person_outline_rounded, 'My Profile', () {
+        Navigator.pop(context);
         Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
       }),
       (Icons.location_on_outlined, 'My Addresses', () {
+        Navigator.pop(context);
         Navigator.push(context, MaterialPageRoute(builder: (_) => const MyAddressesScreen()));
       }),
       (Icons.account_balance_wallet_rounded, 'My Wallet', () {
+        Navigator.pop(context);
         Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletScreen()));
       }),
-      (Icons.favorite_rounded, 'Donate E-Waste', () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const DonateEwasteScreen()));
-      }),
+      // (Icons.favorite_rounded, 'Donate E-Waste', () {
+      //   Navigator.pop(context);
+      //   Navigator.push(context, MaterialPageRoute(builder: (_) => const DonateEwasteScreen()));
+      // }),
       (Icons.business_rounded, 'Corporate Enquiry', () {
+        Navigator.pop(context);
         Navigator.push(context, MaterialPageRoute(builder: (_) => const CorporateInquiryScreen()));
       }),
       (Icons.eco_rounded, 'My Certificates', () {}),
-      (Icons.help_outline_rounded, 'Help & Support', () {}),
+      // (Icons.help_outline_rounded, 'Help & Support', () {}),
       (Icons.logout_rounded, 'Logout', () async {
         await SessionManager().clearSession();
         if (!context.mounted) return;
@@ -71,22 +77,14 @@ class _MenuScreenState extends State<MenuScreen> {
       }),
     ];
 
-    return Scaffold(
+    return Drawer(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Menu'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
-        titleTextStyle: AppTextStyles.headingMedium.copyWith(fontSize: 18),
-      ),
-      body: SafeArea(
+      child: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 16),
+              const SizedBox(height: 33),
               // User info
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -117,24 +115,24 @@ class _MenuScreenState extends State<MenuScreen> {
                       ],
                     ),
                     const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'Free Plan',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.primaryDark,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+                    // Container(
+                    //   padding: const EdgeInsets.symmetric(
+                    //     horizontal: 10,
+                    //     vertical: 4,
+                    //   ),
+                    //   decoration: BoxDecoration(
+                    //     color: AppColors.primaryLight,
+                    //     borderRadius: BorderRadius.circular(6),
+                    //   ),
+                    //   child: const Text(
+                    //     'Free Plan',
+                    //     style: TextStyle(
+                    //       fontSize: 11,
+                    //       color: AppColors.primaryDark,
+                    //       fontWeight: FontWeight.w600,
+                    //     ),
+                    //   ),
+                    // ),
                   ],
                 ),
               ),

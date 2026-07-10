@@ -12,14 +12,34 @@ class ApiService {
   ApiService._internal();
 
   /// Handle localhost URL correctly for Android Emulator vs other platforms
-  String get baseUrl {
-    return Platform.isAndroid ? 'https://ewasteapi.techgigs.in' : 'https://ewasteapi.techgigs.in';
+  // String get baseUrl {
+  //   return Platform.isAndroid ? 'https://ewasteapi.techgigs.in' : 'https://ewasteapi.techgigs.in';
+  // }
+
+  static const String baseUrl = "http://192.168.1.6:3000";
+  // static const String baseUrl = "https://ewasteapi.techgigs.in";
+  // static const String baseUrl = "http://10.39.42.95:3000";
+
+
+
+
+  /// Fetch list of cities
+  Future<http.Response> getCities() async {
+    final url = Uri.parse('$baseUrl/api/admin/service-zones/cities');
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile'
+      }
+    ).timeout(const Duration(seconds: 10));
+    return response;
   }
 
   /// Sends the Firebase ID token to the backend to authenticate the user
   Future<http.Response> firebaseLogin(String idToken) async {
     final url = Uri.parse('$baseUrl/api/auth/firebase-login');
-    
+
     debugPrint('--- API REQUEST ---');
     debugPrint('POST: $url');
     debugPrint('Headers: { Content-Type: application/json, Authorization: Bearer <token_hidden>, x-source-ewaste: mobile }');
@@ -201,6 +221,53 @@ class ApiService {
     return response;
   }
 
+  /// Fetches the user's wallet transaction timeline with pagination
+  Future<http.Response> getWalletTimeline({int page = 1, int limit = 10}) async {
+    final url = Uri.parse('$baseUrl/api/seller/wallet/timeline?page=$page&limit=$limit');
+    final token = await SessionManager().getAccessToken();
+    
+    debugPrint('--- WALLET TIMELINE REQUEST ---');
+    debugPrint('GET: $url');
+    
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- WALLET TIMELINE RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Response Body: ${response.body}');
+
+    return response;
+  }
+
+  /// Fetches orders with pagination
+  Future<http.Response> getOrders({int page = 1, int limit = 10}) async {
+    final url = Uri.parse('$baseUrl/api/orders?page=$page&limit=$limit');
+    final token = await SessionManager().getAccessToken();
+    
+    debugPrint('--- GET ORDERS REQUEST ---');
+    debugPrint('GET: $url');
+    
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- GET ORDERS RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+
+    return response;
+  }
+
   /// Fetches the seller's profile
   Future<Map<String, dynamic>> getProfile() async {
     final url = Uri.parse('$baseUrl/api/seller/profile');
@@ -336,6 +403,249 @@ class ApiService {
     }
   }
 
+  /// Adds a new UPI account for the seller
+  Future<void> addUpiAccount(Map<String, dynamic> data) async {
+    final url = Uri.parse('$baseUrl/api/seller/upi-accounts');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- ADD UPI REQUEST ---');
+    debugPrint('POST: $url');
+    debugPrint('Payload: ${jsonEncode(data)}');
+    
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- ADD UPI RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to add UPI: ${response.statusCode}');
+    }
+  }
+
+  /// Edits an existing UPI account for the seller
+  Future<void> editUpiAccount(int id, Map<String, dynamic> data) async {
+    final url = Uri.parse('$baseUrl/api/seller/upi-accounts/edit/$id');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- EDIT UPI REQUEST ---');
+    debugPrint('PUT: $url');
+    debugPrint('Payload: ${jsonEncode(data)}');
+    
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- EDIT UPI RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to edit UPI: ${response.statusCode}');
+    }
+  }
+
+  /// Deletes a UPI account for the seller
+  Future<void> deleteUpiAccount(int id) async {
+    final url = Uri.parse('$baseUrl/api/seller/upi-accounts/delete/$id');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- DELETE UPI REQUEST ---');
+    debugPrint('DELETE: $url');
+    
+    final response = await http.delete(
+      url,
+      headers: {
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- DELETE UPI RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete UPI: ${response.statusCode}');
+    }
+  }
+
+  /// Adds a new bank account for the seller
+  Future<void> addBankAccount(Map<String, dynamic> data) async {
+    final url = Uri.parse('$baseUrl/api/seller/bank-accounts');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- ADD BANK REQUEST ---');
+    debugPrint('POST: $url');
+    debugPrint('Payload: ${jsonEncode(data)}');
+    
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- ADD BANK RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to add bank account: ${response.statusCode}');
+    }
+  }
+
+  /// Edits an existing bank account for the seller
+  Future<void> editBankAccount(int id, Map<String, dynamic> data) async {
+    final url = Uri.parse('$baseUrl/api/seller/bank-accounts/edit/$id');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- EDIT BANK REQUEST ---');
+    debugPrint('PUT: $url');
+    debugPrint('Payload: ${jsonEncode(data)}');
+    
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- EDIT BANK RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to edit bank account: ${response.statusCode}');
+    }
+  }
+
+  /// Deletes a bank account for the seller
+  Future<void> deleteBankAccount(int id) async {
+    final url = Uri.parse('$baseUrl/api/seller/bank-accounts/delete/$id');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- DELETE BANK REQUEST ---');
+    debugPrint('DELETE: $url');
+    
+    final response = await http.delete(
+      url,
+      headers: {
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- DELETE BANK RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete bank account: ${response.statusCode}');
+    }
+  }
+
+  /// Adds a new GST number for the seller
+  Future<void> addGstNumber(Map<String, dynamic> data) async {
+    final url = Uri.parse('$baseUrl/api/seller/gst-numbers');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- ADD GST REQUEST ---');
+    debugPrint('POST: $url');
+    debugPrint('Payload: ${jsonEncode(data)}');
+    
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- ADD GST RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Failed to add GST number: ${response.statusCode}');
+    }
+  }
+
+  /// Edits an existing GST number for the seller
+  Future<void> editGstNumber(int id, Map<String, dynamic> data) async {
+    final url = Uri.parse('$baseUrl/api/seller/gst-numbers/edit/$id');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- EDIT GST REQUEST ---');
+    debugPrint('PUT: $url');
+    debugPrint('Payload: ${jsonEncode(data)}');
+    
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(data),
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- EDIT GST RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to edit GST number: ${response.statusCode}');
+    }
+  }
+
+  /// Deletes a GST number for the seller
+  Future<void> deleteGstNumber(int id) async {
+    final url = Uri.parse('$baseUrl/api/seller/gst-numbers/delete/$id');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- DELETE GST REQUEST ---');
+    debugPrint('DELETE: $url');
+    
+    final response = await http.delete(
+      url,
+      headers: {
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- DELETE GST RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete GST number: ${response.statusCode}');
+    }
+  }
+
   /// 1. Fetches presigned URL for S3 upload
   Future<Map<String, dynamic>> getPresignedUrl(String fileName, String contentType) async {
     final url = Uri.parse('$baseUrl/api/upload/presigned');
@@ -419,6 +729,37 @@ class ApiService {
     }
   }
 
+  /// Updates a sell request (used for accepting/rejecting negotiated price)
+  Future<Map<String, dynamic>> updateSellRequest(String id, Map<String, dynamic> payload) async {
+    final url = Uri.parse('$baseUrl/api/sell-requests/$id');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- UPDATE SELL REQUEST ---');
+    debugPrint('PUT: $url');
+    
+    final bodyData = jsonEncode(payload);
+    debugPrint('Payload: $bodyData');
+
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+      body: bodyData,
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- UPDATE SELL RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to update sell request: ${response.statusCode} - ${response.body}');
+    }
+  }
+
   Future<Map<String, dynamic>> submitBulkEnquiry(Map<String, dynamic> payload) async {
     final url = Uri.parse('$baseUrl/api/bulk-enquiries');
     final token = await SessionManager().getAccessToken() ?? '';
@@ -446,6 +787,36 @@ class ApiService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     } else {
       throw Exception('Failed to submit bulk enquiry: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  /// Request wallet withdrawal
+  Future<Map<String, dynamic>> requestWithdrawal(Map<String, dynamic> payload) async {
+    final url = Uri.parse('$baseUrl/api/seller/wallet/withdrawals');
+    final token = await SessionManager().getAccessToken() ?? '';
+    
+    debugPrint('--- SUBMIT WITHDRAWAL REQUEST ---');
+    debugPrint('POST: $url');
+    debugPrint('Payload: ${jsonEncode(payload)}');
+    
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(payload),
+    ).timeout(const Duration(seconds: 15));
+
+    debugPrint('--- WITHDRAWAL RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Body: ${response.body}');
+    
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to submit withdrawal: ${response.statusCode} - ${response.body}');
     }
   }
 }

@@ -25,6 +25,37 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   bool _isCheckingPincode = false;
   String _pincodeErrorMsg = '';
 
+  List<dynamic> _cities = [];
+  bool _isLoadingCities = false;
+  String? _selectedCity;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCities();
+  }
+
+  Future<void> _loadCities() async {
+    setState(() => _isLoadingCities = true);
+    try {
+      final res = await ApiService().getCities();
+      if (res.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(res.body);
+        if (mounted) {
+          setState(() {
+            _cities = data;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading cities: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingCities = false);
+      }
+    }
+  }
+
   void _onPincodeChanged(String value) async {
     if (value.length == 6) {
       setState(() {
@@ -195,11 +226,31 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                       children: [
                         _buildLabel('City *'),
                         const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _cityController,
-                          decoration: _inputDecoration('e.g. Pune'),
-                          validator: (v) => v!.trim().isEmpty ? 'Required' : null,
-                        ),
+                        _isLoadingCities
+                            ? const SizedBox(
+                                height: 50,
+                                child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                              )
+                            : DropdownButtonFormField<String>(
+                                value: _selectedCity,
+                                decoration: _inputDecoration('Select City'),
+                                isExpanded: true,
+                                icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                                items: _cities.map<DropdownMenuItem<String>>((city) {
+                                  final cityName = city['name']?.toString() ?? '';
+                                  return DropdownMenuItem<String>(
+                                    value: cityName,
+                                    child: Text(cityName, overflow: TextOverflow.ellipsis),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedCity = value;
+                                    _cityController.text = value ?? '';
+                                  });
+                                },
+                                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                              ),
                       ],
                     ),
                   ),

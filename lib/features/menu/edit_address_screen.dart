@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/core/services/api_service.dart';
@@ -22,6 +23,10 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   late bool _isDefault;
   bool _isSaving = false;
 
+  List<dynamic> _cities = [];
+  bool _isLoadingCities = false;
+  String? _selectedCity;
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +38,40 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     String type = (widget.address['addressType']?.toString() ?? 'Home');
     _selectedType = type.toLowerCase() == 'office' ? 'Office' : 'Home';
     _isDefault = widget.address['isDefault'] == true || widget.address['isDefault'] == 1 || widget.address['isDefault'] == 'true';
+    
+    _loadCities();
+  }
+
+  Future<void> _loadCities() async {
+    setState(() => _isLoadingCities = true);
+    try {
+      final res = await ApiService().getCities();
+      if (res.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(res.body);
+        if (mounted) {
+          setState(() {
+            _cities = data;
+            final currentCity = _cityController.text.trim();
+            if (currentCity.isNotEmpty) {
+              final matchedCity = _cities.where((c) => (c['name']?.toString() ?? '').toLowerCase() == currentCity.toLowerCase()).firstOrNull;
+              if (matchedCity != null) {
+                _selectedCity = matchedCity['name']?.toString();
+                _cityController.text = _selectedCity!;
+              } else {
+                _cities.insert(0, {'id': 'custom', 'name': currentCity});
+                _selectedCity = currentCity;
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading cities: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingCities = false);
+      }
+    }
   }
 
   @override
@@ -136,11 +175,31 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                       children: [
                         _buildLabel('City *'),
                         const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _cityController,
-                          decoration: _inputDecoration('e.g. Pune'),
-                          validator: (v) => v!.trim().isEmpty ? 'Required' : null,
-                        ),
+                        _isLoadingCities
+                            ? const SizedBox(
+                                height: 50,
+                                child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                              )
+                            : DropdownButtonFormField<String>(
+                                value: _selectedCity,
+                                decoration: _inputDecoration('Select City'),
+                                isExpanded: true,
+                                icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                                items: _cities.map<DropdownMenuItem<String>>((city) {
+                                  final cityName = city['name']?.toString() ?? '';
+                                  return DropdownMenuItem<String>(
+                                    value: cityName,
+                                    child: Text(cityName, overflow: TextOverflow.ellipsis),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedCity = value;
+                                    _cityController.text = value ?? '';
+                                  });
+                                },
+                                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                              ),
                       ],
                     ),
                   ),

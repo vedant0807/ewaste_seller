@@ -6,6 +6,7 @@ import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/features/main/main_screen.dart';
 import 'package:seller_ewaste/features/auth/widgets/registration_bottom_sheet.dart';
 import 'package:seller_ewaste/core/services/session_manager.dart';
+import 'package:seller_ewaste/core/utils/validators.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -88,8 +89,9 @@ class _LoginScreenState extends State<LoginScreen> {
   void _sendOtp() async {
     final phone = _phoneController.text.trim();
 
-    if (phone.length != 10) {
-      _showSnack('Enter a valid 10-digit phone number');
+    final error = Validators.validateMobile(phone);
+    if (error != null) {
+      _showSnack(error);
       return;
     }
 

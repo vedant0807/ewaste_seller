@@ -22,19 +22,19 @@ class _MainScreenState extends State<MainScreen> {
     _currentIndex = widget.initialIndex;
   }
 
-  final _screens = const [
-    DashboardScreen(),
-    SellFlowEntryPoint(),
-    RequestsScreen(),
-    WalletScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      const DashboardScreen(),
+      const SellFlowEntryPoint(),
+      const RequestsScreen(),
+      WalletScreen(isActive: _currentIndex == 3),
+    ];
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: screens,
       ),
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: _currentIndex,

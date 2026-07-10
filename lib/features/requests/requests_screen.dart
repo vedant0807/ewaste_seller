@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/core/services/api_service.dart';
 import 'package:seller_ewaste/features/requests/request_detail_screen.dart';
+import 'package:seller_ewaste/features/main/main_screen.dart';
 
 class RequestsScreen extends StatefulWidget {
   const RequestsScreen({super.key});
@@ -164,8 +165,19 @@ class _RequestsScreenState extends State<RequestsScreen>
                           ],
                         ),
             ),
-          ],
-        ),
+        ]),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)),
+            (route) => false,
+          );
+        },
+        backgroundColor: AppColors.primary,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('Add Request', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -215,6 +227,7 @@ class _RequestsList extends StatelessWidget {
               itemBuilder: (_, i) => _RequestCard(
                 data: filtered[i] as Map<String, dynamic>,
                 initiallyExpanded: i == 0,
+                onRefresh: onRefresh,
               ),
             ),
     );
@@ -224,8 +237,9 @@ class _RequestsList extends StatelessWidget {
 class _RequestCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final bool initiallyExpanded; // Kept for signature compatibility if needed, but unused
+  final Future<void> Function()? onRefresh;
   
-  const _RequestCard({required this.data, this.initiallyExpanded = false});
+  const _RequestCard({required this.data, this.initiallyExpanded = false, this.onRefresh});
 
 
 
@@ -250,8 +264,11 @@ class _RequestCard extends StatelessWidget {
     final status = data['status']?.toString().toUpperCase() ?? 'PLACED';
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => RequestDetailScreen(data: data)));
+      onTap: () async {
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => RequestDetailScreen(data: data)));
+        if (onRefresh != null) {
+          onRefresh!();
+        }
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),

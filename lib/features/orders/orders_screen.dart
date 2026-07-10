@@ -1,13 +1,115 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
+import 'package:seller_ewaste/core/services/api_service.dart';
 
-class OrdersScreen extends StatelessWidget {
+class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
+
+  @override
+  State<OrdersScreen> createState() => _OrdersScreenState();
+}
+
+class _OrdersScreenState extends State<OrdersScreen> {
+  final ScrollController _scrollController = ScrollController();
+  List<dynamic> _orders = [];
+  int _page = 1;
+  bool _hasMore = true;
+  bool _isLoading = false;
+  String? _error;
+  int _totalOrders = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrders(page: 1, isRefresh: true);
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+        _fetchOrders(page: _page + 1);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchOrders({int page = 1, bool isRefresh = false}) async {
+    if (_isLoading) return;
+    if (!isRefresh && !_hasMore) return;
+
+    setState(() {
+      _isLoading = true;
+      if (isRefresh) {
+        _page = 1;
+        _hasMore = true;
+        _error = null;
+      } else {
+        _page = page;
+      }
+    });
+
+    try {
+      final response = await ApiService().getOrders(page: _page, limit: 10);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        List<dynamic> newOrders = [];
+        
+        if (data is List) {
+           newOrders = data;
+        } else if (data is Map && data.containsKey('data')) {
+           newOrders = data['data'] as List<dynamic>? ?? [];
+           _totalOrders = data['totalRecords'] as int? ?? _totalOrders;
+           if (data.containsKey('hasNextPage')) {
+             _hasMore = data['hasNextPage'] == true;
+           } else {
+             _hasMore = newOrders.length == 10;
+           }
+        } else {
+           _hasMore = false;
+        }
+
+        if (mounted) {
+          setState(() {
+            if (isRefresh) {
+              _orders = newOrders;
+              if (data is! Map || !data.containsKey('totalRecords')) {
+                _totalOrders = _orders.length;
+              }
+            } else {
+              _orders.addAll(newOrders);
+            }
+            if (data is! Map || !data.containsKey('hasNextPage')) {
+              _hasMore = newOrders.length == 10;
+            }
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _error = 'Failed to load orders';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Orders Error: $e');
+      if (mounted) {
+        setState(() {
+          _error = isRefresh ? 'Failed to fetch orders' : _error;
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bgCard, // White background for the whole page
+      backgroundColor: AppColors.bgCard,
       appBar: AppBar(
         backgroundColor: AppColors.bgCard,
         elevation: 0,
@@ -17,75 +119,92 @@ class OrdersScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: AppSpacing.sm),
-                const Text(
-                  'Marketplace Board & Sales',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                    height: 1.2,
+        child: RefreshIndicator(
+          onRefresh: () => _fetchOrders(page: 1, isRefresh: true),
+          color: AppColors.primary,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppSpacing.sm),
+                  const Text(
+                    'Marketplace Board & Sales',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                      height: 1.2,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Manage your active buyer sales, ship packages, and track completed recycling requests.',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
-                    height: 1.4,
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Manage your active buyer sales, ship packages, and track completed recycling requests.',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.4,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                
-                // Recycling Orders Tab
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 18),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Recycling Orders (3)',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                  const SizedBox(height: AppSpacing.lg),
+                  
+                  // Recycling Orders Tab
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Recycling Orders ($_totalOrders)',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
+                  const SizedBox(height: AppSpacing.xl),
 
-                // Order Cards List
-                _OrderCard(
-                  device: 'MacBook Pro 2019',
-                  ordId: 'EW-0426-83921',
-                  date: 'Mar 1, 2026',
-                  price: '₹8,500',
-                  hasReceipt: true,
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                _OrderCard(
-                  device: 'iPhone 12',
-                  ordId: 'EW-0326-72184',
-                  date: 'Feb 24, 2026',
-                  price: '₹4,410',
-                  hasReceipt: false,
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-              ],
+                  if (_error != null && _orders.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Center(child: Text(_error!, style: const TextStyle(color: Colors.red))),
+                    )
+                  else if (_orders.isEmpty && _isLoading)
+                    const Padding(
+                      padding: EdgeInsets.all(40),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_orders.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(40),
+                      child: Center(child: Text('No orders found.', style: TextStyle(color: AppColors.textSecondary))),
+                    )
+                  else ...[
+                    ..._orders.map((order) => Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                          child: _OrderCard(data: order),
+                        )).toList(),
+                        
+                    if (_isLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                  ],
+                  const SizedBox(height: AppSpacing.xxl),
+                ],
+              ),
             ),
           ),
         ),
@@ -95,22 +214,40 @@ class OrdersScreen extends StatelessWidget {
 }
 
 class _OrderCard extends StatelessWidget {
-  final String device;
-  final String ordId;
-  final String date;
-  final String price;
-  final bool hasReceipt;
+  final Map<String, dynamic> data;
 
-  const _OrderCard({
-    required this.device,
-    required this.ordId,
-    required this.date,
-    required this.price,
-    required this.hasReceipt,
-  });
+  const _OrderCard({required this.data});
+
+  String _formatDate(String? isoString) {
+    if (isoString == null) return '';
+    try {
+      final dt = DateTime.parse(isoString);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+    } catch (_) {
+      return isoString;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final device = data['device'] ?? 'Unknown Device';
+    final typeStr = data['category'] ?? '';
+    final conditionStr = data['condition'] ?? '';
+    final title = (typeStr.isNotEmpty || conditionStr.isNotEmpty)
+        ? '$device (Type: $typeStr, Condition: $conditionStr)'
+        : device;
+        
+    final ordId = data['requestNumber'] ?? '';
+    final date = _formatDate(data['createdAt']);
+    final price = data['finalPrice']?.toString() ?? data['estimatedPrice']?.toString() ?? '0';
+    final status = data['status']?.toString() ?? 'Pending';
+    final isCompleted = status.toLowerCase() == 'completed' || status.toLowerCase() == 'paid';
+    
+    final payoutMethod = data['payout']?['preferredMethod'] ?? 'Wallet';
+    final invoiceNumber = data['invoiceNumber'] ?? ordId;
+    final hasReceipt = data['receiptUrl'] != null || isCompleted;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -149,7 +286,7 @@ class _OrderCard extends StatelessWidget {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryDark,
+                        color: AppColors.primary,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
@@ -164,10 +301,10 @@ class _OrderCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            device,
+                            title,
                             style: const TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w800,
                               color: AppColors.textPrimary,
                             ),
                           ),
@@ -176,7 +313,7 @@ class _OrderCard extends StatelessWidget {
                             '$ordId  ·  $date',
                             style: const TextStyle(
                               fontSize: 12,
-                              color: AppColors.textMuted,
+                              color: AppColors.textSecondary,
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.5,
                             ),
@@ -192,23 +329,23 @@ class _OrderCard extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: AppColors.statusSuccessBg,
+                                color: isCompleted ? AppColors.statusSuccessBg : Colors.orange.shade50,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(
-                                    Icons.check_circle_outline_rounded,
+                                  Icon(
+                                    isCompleted ? Icons.check_circle_outline_rounded : Icons.pending_actions_rounded,
                                     size: 14,
-                                    color: AppColors.statusSuccess,
+                                    color: isCompleted ? AppColors.statusSuccess : Colors.orange,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'Completed',
+                                    status,
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.statusSuccess,
+                                      color: isCompleted ? AppColors.statusSuccess : Colors.orange,
                                     ),
                                   ),
                                 ],
@@ -216,7 +353,7 @@ class _OrderCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              price,
+                              '₹$price',
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
@@ -243,15 +380,17 @@ class _OrderCard extends StatelessWidget {
                       children: [
                         SizedBox(
                           width: isWide ? (constraints.maxWidth - 32) / 3 : double.infinity,
-                          child: _PickupDetailsCard(),
+                          child: _PickupDetailsCard(data: data),
                         ),
                         SizedBox(
                           width: isWide ? (constraints.maxWidth - 32) / 3 : double.infinity,
-                          child: hasReceipt ? _PaymentReceiptCard() : _GiftVoucherCard(),
+                          child: hasReceipt 
+                              ? _PaymentReceiptCard(method: payoutMethod, invoice: invoiceNumber, paidOn: date) 
+                              : _GiftVoucherCard(), // Or show pending payment
                         ),
                         SizedBox(
                           width: isWide ? (constraints.maxWidth - 32) / 3 : double.infinity,
-                          child: _CertificateCard(),
+                          child: _CertificateCard(data: data),
                         ),
                       ],
                     );
@@ -267,8 +406,20 @@ class _OrderCard extends StatelessWidget {
 }
 
 class _PickupDetailsCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  const _PickupDetailsCard({required this.data});
+
   @override
   Widget build(BuildContext context) {
+    dynamic addrData = data['address'];
+    Map<String, dynamic> addressObj = addrData is Map ? addrData as Map<String, dynamic> : {};
+    final addrLine = addrData is String ? addrData : (addressObj['address'] ?? 'No Address');
+    
+    dynamic schedData = data['schedule'];
+    Map<String, dynamic> sched = schedData is Map ? schedData as Map<String, dynamic> : {};
+    final schedDate = schedData is String ? schedData : (sched['scheduledDate'] ?? '');
+    final timeslot = sched['timeSlot'] ?? '';
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
@@ -282,8 +433,8 @@ class _PickupDetailsCard extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3E8FF),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF3E8FF),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -304,25 +455,27 @@ class _PickupDetailsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const Text(
-            '12 Park Street, Mumbai - 400001',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          Text(
+            addrLine,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
           Row(
-            children: const [
-              Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textSecondary),
-              SizedBox(width: 6),
+            children: [
+              const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textSecondary),
+              const SizedBox(width: 6),
               Text(
-                'Mar 2, 2026',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                schedDate,
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
-            '11:00 AM - 1:00 PM',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          Text(
+            timeslot,
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 38), // Match height of other cards roughly
         ],
@@ -332,6 +485,12 @@ class _PickupDetailsCard extends StatelessWidget {
 }
 
 class _PaymentReceiptCard extends StatelessWidget {
+  final String method;
+  final String invoice;
+  final String paidOn;
+
+  const _PaymentReceiptCard({required this.method, required this.invoice, required this.paidOn});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -347,7 +506,7 @@ class _PaymentReceiptCard extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.primaryLight,
                   shape: BoxShape.circle,
                 ),
@@ -370,23 +529,23 @@ class _PaymentReceiptCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           RichText(
-            text: const TextSpan(
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            text: TextSpan(
+              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
               children: [
-                TextSpan(text: 'Method: '),
-                TextSpan(text: 'Bank Transfer', style: TextStyle(fontWeight: FontWeight.w600)),
+                const TextSpan(text: 'Method: '),
+                TextSpan(text: method, style: const TextStyle(fontWeight: FontWeight.w600)),
               ],
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'TXN82736455',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          Text(
+            invoice,
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Paid on Mar 4, 2026',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          Text(
+            'Paid on $paidOn',
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
           Container(
@@ -505,22 +664,29 @@ class _GiftVoucherCard extends StatelessWidget {
 }
 
 class _CertificateCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  const _CertificateCard({required this.data});
+
   @override
   Widget build(BuildContext context) {
+    final certIssued = data['certificateIssued'] == true;
+    final certId = data['certificateId'] ?? '';
+
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: certIssued ? const Color(0xFFF8FAFC) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
+        border: certIssued ? null : Border.all(color: AppColors.border, style: BorderStyle.solid),
       ),
       padding: const EdgeInsets.all(16),
-      child: Column(
+      child: certIssued ? Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.primaryLight,
                   shape: BoxShape.circle,
                 ),
@@ -542,9 +708,9 @@ class _CertificateCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const Text(
-            'CERT-2026-001',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+          Text(
+            certId.isNotEmpty ? certId : 'CERT-2026-001',
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
           const Text(
@@ -572,6 +738,18 @@ class _CertificateCard extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ) : Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: const [
+          SizedBox(height: 32),
+          Icon(Icons.workspace_premium_outlined, color: Colors.grey, size: 32),
+          SizedBox(height: 12),
+          Text('Pending Certificate', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
+          SizedBox(height: 4),
+          Text('Will be issued shortly', style: TextStyle(color: Colors.grey, fontSize: 11)),
+          SizedBox(height: 32),
         ],
       ),
     );

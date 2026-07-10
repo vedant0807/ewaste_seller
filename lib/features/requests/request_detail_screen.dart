@@ -1,11 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'package:seller_ewaste/core/services/api_service.dart';
 
-class RequestDetailScreen extends StatelessWidget {
+class RequestDetailScreen extends StatefulWidget {
   final Map<String, dynamic> data;
 
   const RequestDetailScreen({super.key, required this.data});
+
+  @override
+  State<RequestDetailScreen> createState() => _RequestDetailScreenState();
+}
+
+class _RequestDetailScreenState extends State<RequestDetailScreen> {
+  late Map<String, dynamic> _data;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _data = Map<String, dynamic>.from(widget.data);
+  }
 
   String _formatDate(String? isoString) {
     if (isoString == null) return 'N/A';
@@ -34,17 +49,46 @@ class RequestDetailScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _handleOffer(bool accept) async {
+    setState(() => _isSubmitting = true);
+    try {
+      final reqId = _data['id']?.toString() ?? '';
+      await ApiService().updateSellRequest(reqId, {
+        'quotedPriceAccepted': accept,
+      });
+      
+      if (mounted) {
+        setState(() {
+          _data['quotedPriceAccepted'] = accept;
+          if (accept) {
+             _data['estimatedPrice'] = _data['negotiatedPrice'];
+             _data['negotiatedPrice'] = null;
+          } else {
+             // Backend usually sets status to rejected if needed, or we just leave it.
+             _data['status'] = 'Rejected';
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(accept ? 'Offer Accepted!' : 'Offer Rejected')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update offer: $e')));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final device = data['device'] ?? 'Unknown Device';
-    final date = _formatDate(data['createdAt']);
-    final time = _formatTime(data['createdAt']);
-    final price = data['estimatedPrice']?.toString() ?? '0';
-    final status = data['status']?.toString().toUpperCase() ?? 'PLACED';
-    final step = data['statusStep'] as int? ?? 1;
-    final payoutMethod = data['payout']?['preferredMethod'] ?? 'Wallet';
-    
-    final addressObj = data['address'] as Map<String, dynamic>? ?? {};
+    final device = _data['device'] ?? 'Unknown Device';
+    final date = _formatDate(_data['createdAt']);
+    final time = _formatTime(_data['createdAt']);
+    final estimatedPrice = _data['estimatedPrice']?.toString() ?? '0';
+    final negotiatedPrice = _data['negotiatedPrice']?.toString();
+    final quotedPriceAccepted = _data['quotedPriceAccepted'] == true;
+    final status = _data['status']?.toString().toUpperCase() ?? 'PLACED';
+    final step = _data['statusStep'] as int? ?? 1;
+    final payoutMethod = _data['payout']?['preferredMethod'] ?? 'Wallet';
+    final addressObj = _data['address'] as Map<String, dynamic>? ?? {};
     final fName = addressObj['firstName'] ?? '';
     final lName = addressObj['lastName'] ?? '';
     final customerName = '$fName $lName'.trim();
@@ -60,10 +104,10 @@ class RequestDetailScreen extends StatelessWidget {
     final fullAddress = [addrLine, city, state, pin].where((s) => s.toString().isNotEmpty).join(', ');
 
     // Extract images
-    final images = data['images'] as List<dynamic>? ?? [];
+    final images = _data['images'] as List<dynamic>? ?? [];
 
     // Notes might contain pickup date/timeslot if we embedded it there
-    final notes = data['notes']?.toString() ?? '';
+    final notes = _data['notes']?.toString() ?? '';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -122,17 +166,75 @@ class RequestDetailScreen extends StatelessWidget {
                         const Text('Products', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                         const SizedBox(height: 8),
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Icon(Icons.devices_other_rounded, size: 28),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                '$device  ₹$price/PCs',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    device,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  if (negotiatedPrice != null && !quotedPriceAccepted) ...[
+                                    Text('Estimated: ₹$estimatedPrice', style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey, fontSize: 13)),
+                                    Text('New Offer: ₹$negotiatedPrice', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 15)),
+                                  ] else ...[
+                                    Text('Price: ₹$estimatedPrice', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                  ],
+                                ],
                               ),
                             ),
                           ],
                         ),
+                        
+                        if (negotiatedPrice != null && !quotedPriceAccepted && status != 'REJECTED') ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Admin sent a new price offer. Do you accept?', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.orange)),
+                                const SizedBox(height: 12),
+                                _isSubmitting ? const Center(child: CircularProgressIndicator()) : Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: () => _handleOffer(false),
+                                        style: OutlinedButton.styleFrom(
+                                          side: const BorderSide(color: Colors.red),
+                                          foregroundColor: Colors.red,
+                                        ),
+                                        child: const Text('Reject'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: () => _handleOffer(true),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                          foregroundColor: Colors.white,
+                                          elevation: 0,
+                                        ),
+                                        child: const Text('Accept'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

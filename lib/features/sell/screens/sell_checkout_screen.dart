@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/core/services/api_service.dart';
 import 'package:seller_ewaste/core/services/session_manager.dart';
@@ -9,6 +11,7 @@ import 'package:seller_ewaste/features/main/main_screen.dart';
 import 'package:seller_ewaste/features/menu/add_address_screen.dart';
 import 'package:seller_ewaste/features/menu/edit_address_screen.dart';
 import 'package:seller_ewaste/features/menu/my_addresses_screen.dart';
+import 'package:seller_ewaste/core/utils/validators.dart';
 
 class SellCheckoutScreen extends StatefulWidget {
   final SellRequestModel requestData;
@@ -39,6 +42,14 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
   bool? _isPincodeServiceable;
   bool _isCheckingPincode = false;
   String _pincodeErrorMsg = '';
+
+  bool _isLoadingPaymentInfo = true;
+  List<dynamic> _savedUpiAccounts = [];
+  List<dynamic> _savedBankAccounts = [];
+  List<dynamic> _savedGstNumbers = [];
+  Map<String, dynamic>? _selectedUpi;
+  Map<String, dynamic>? _selectedBank;
+  Map<String, dynamic>? _selectedGst;
 
   void _checkPincode() async {
     if (_selectedAddress == null) return;
@@ -108,7 +119,10 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
   }
 
   Future<void> _loadAddress() async {
-    setState(() => _isLoadingAddress = true);
+    setState(() {
+      _isLoadingAddress = true;
+      _isLoadingPaymentInfo = true;
+    });
     try {
       final data = await ApiService().getProfile();
       final List<dynamic> addresses = data['addresses'] ?? [];
@@ -119,10 +133,38 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
       } else {
         _selectedAddress = null;
       }
+      
+      _savedUpiAccounts = data['upiAccounts'] ?? [];
+      _savedBankAccounts = data['bankAccounts'] ?? [];
+      
+      if (_savedUpiAccounts.isNotEmpty) {
+        _selectedUpi = _savedUpiAccounts.firstWhere((u) => u['isDefault'] == true, orElse: () => _savedUpiAccounts.first) as Map<String, dynamic>;
+      } else {
+        _selectedUpi = null;
+      }
+      
+      if (_savedBankAccounts.isNotEmpty) {
+        _selectedBank = _savedBankAccounts.firstWhere((b) => b['isDefault'] == true, orElse: () => _savedBankAccounts.first) as Map<String, dynamic>;
+      } else {
+        _selectedBank = null;
+      }
+      
+      _savedGstNumbers = data['gstNumbers'] ?? [];
+      if (_savedGstNumbers.isNotEmpty) {
+        _selectedGst = _savedGstNumbers.firstWhere((g) => g['isDefault'] == true, orElse: () => _savedGstNumbers.first) as Map<String, dynamic>;
+      } else {
+        _selectedGst = null;
+      }
+      
     } catch (e) {
       _selectedAddress = null;
+      _selectedUpi = null;
+      _selectedBank = null;
     } finally {
-      if (mounted) setState(() => _isLoadingAddress = false);
+      if (mounted) setState(() {
+        _isLoadingAddress = false;
+        _isLoadingPaymentInfo = false;
+      });
     }
   }
 
@@ -134,7 +176,9 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
     
     setState(() {
       if (widget.requestData.fullName.isEmpty && name != null) _fullNameController.text = name;
-      if (widget.requestData.mobile.isEmpty && phone != null) _mobileController.text = phone;
+      if (widget.requestData.mobile.isEmpty && phone != null) {
+        _mobileController.text = phone.replaceAll('+91', '').replaceAll(' ', '');
+      }
       if (widget.requestData.email.isEmpty && email != null) _emailController.text = email;
     });
   }
@@ -153,24 +197,90 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
     super.dispose();
   }
 
-  bool get _canSubmit {
-    final hasContact = _fullNameController.text.isNotEmpty && 
-                       _mobileController.text.isNotEmpty && 
-                       _selectedAddress != null &&
-                       _isPincodeServiceable == true;
-    final hasSchedule = widget.requestData.pickupDate != null && 
-                        widget.requestData.timeSlot != null;
-    
-    bool hasPayment = false;
-    if (widget.requestData.paymentMethod == 'upi') {
-      hasPayment = _upiController.text.isNotEmpty;
-    } else if (widget.requestData.paymentMethod == 'bank') {
-      hasPayment = _accountNameController.text.isNotEmpty && _accountNumberController.text.isNotEmpty && _ifscController.text.isNotEmpty;
-    } else {
-      hasPayment = true; 
-    }
+  void _showToast(String message, {bool isError = true}) {
+    FToast fToast = FToast();
+    fToast.init(context);
 
-    return hasContact && hasSchedule && hasPayment && _termsAccepted;
+    Widget toast = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+      margin: const EdgeInsets.only(bottom: 20.0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(25.0),
+        color: isError ? Colors.red.shade600 : Colors.green.shade600,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded, color: Colors.white, size: 20),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              message,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    fToast.showToast(
+      child: toast,
+      gravity: ToastGravity.BOTTOM,
+      toastDuration: const Duration(seconds: 3),
+    );
+  }
+
+  void _submitRequestWithValidation() {
+    if (_fullNameController.text.trim().isEmpty) {
+      _showToast('Please enter your full name', isError: true);
+      return;
+    }
+    if (_mobileController.text.trim().isEmpty) {
+      _showToast('Mobile number is missing', isError: true);
+      return;
+    }
+    if (_emailController.text.trim().isEmpty) {
+      _showToast('Please enter your email address', isError: true);
+      return;
+    }
+    if (_selectedAddress == null) {
+      _showToast('Please select an address', isError: true);
+      return;
+    }
+    if (widget.requestData.pickupDate == null) {
+      _showToast('Please select a pickup date', isError: true);
+      return;
+    }
+    if (widget.requestData.timeSlot == null) {
+      _showToast('Please select a pickup time slot', isError: true);
+      return;
+    }
+    if (_hasGst && _selectedGst == null) {
+      _showToast('Please select a GST number', isError: true);
+      return;
+    }
+    if (widget.requestData.paymentMethod == 'upi' && _selectedUpi == null) {
+      _showToast('Please select a UPI ID', isError: true);
+      return;
+    }
+    if (widget.requestData.paymentMethod == 'bank' && _selectedBank == null) {
+      _showToast('Please select a Bank Account', isError: true);
+      return;
+    }
+    if (!_termsAccepted) {
+      _showToast('Please agree to the terms', isError: true);
+      return;
+    }
+    
+    _submitRequest();
   }
 
   Future<void> _submitRequest() async {
@@ -200,7 +310,7 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
       if (!isServiceable) {
         if (mounted) {
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg)));
+          _showToast(errorMsg, isError: true);
         }
         return;
       }
@@ -259,13 +369,16 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
           },
           'images': item.uploadedImageUrls,
           'notes': notes,
+          'scheduledDate': dateStr,
+          'timeSlot': req.timeSlot,
           'paymentMethod': req.paymentMethod.toUpperCase(),
+          'gstNumber': _hasGst && _selectedGst != null ? _selectedGst!['gstNumber'] : '',
           'payout': {
-            'accountHolder': req.accountName,
-            'bankName': req.bankName,
-            'accountNumber': req.accountNumber,
-            'ifsc': req.ifscCode,
-            'upiId': req.upiId,
+            'accountHolder': widget.requestData.paymentMethod == 'bank' && _selectedBank != null ? _selectedBank!['accountHolderName'] : '',
+            'bankName': widget.requestData.paymentMethod == 'bank' && _selectedBank != null ? _selectedBank!['bankName'] : '',
+            'accountNumber': widget.requestData.paymentMethod == 'bank' && _selectedBank != null ? _selectedBank!['accountNumber'] : '',
+            'ifsc': widget.requestData.paymentMethod == 'bank' && _selectedBank != null ? _selectedBank!['ifscCode'] : '',
+            'upiId': widget.requestData.paymentMethod == 'upi' && _selectedUpi != null ? _selectedUpi!['upiId'] : '',
             'preferredMethod': req.paymentMethod.toUpperCase(),
           },
         };
@@ -280,12 +393,737 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to submit: $e')));
+        _showToast('Failed to submit: $e', isError: true);
       }
     }
   }
 
 
+
+  void _showAddUpiDialog() {
+    final upiIdController = TextEditingController();
+    final labelController = TextEditingController();
+    bool isDefault = true;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Add New UPI ID', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTextField('UPI ID *', upiIdController),
+                    const SizedBox(height: 16),
+                    _buildTextField('Label (Optional)', labelController),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: isDefault,
+                          onChanged: (val) {
+                            setModalState(() => isDefault = val ?? false);
+                          },
+                          activeColor: AppColors.primary,
+                        ),
+                        const Text('Set as default UPI ID', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  child: const Text('Cancel', style: TextStyle(color: AppColors.textPrimary)),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final upiError = Validators.validateUpi(upiIdController.text.trim());
+                    if (upiError != null) {
+                      _showToast(upiError, isError: true);
+                      return;
+                    }
+                    
+                    Navigator.pop(ctx);
+                    setState(() => _isLoadingPaymentInfo = true);
+                    
+                    try {
+                      final payload = {
+                        'upiId': upiIdController.text.trim(),
+                        'label': labelController.text.trim(),
+                        'isDefault': isDefault,
+                      };
+                      await ApiService().addUpiAccount(payload);
+                      
+                      if (mounted) {
+                        _showToast('UPI added successfully', isError: false);
+                        _loadAddress();
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        _showToast('Failed to save UPI ID', isError: true);
+                        setState(() => _isLoadingPaymentInfo = false);
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Save UPI ID', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showAddBankDialog() {
+    final holderNameController = TextEditingController();
+    final bankNameController = TextEditingController();
+    final accNoController = TextEditingController();
+    final confirmAccNoController = TextEditingController();
+    final ifscController = TextEditingController();
+    bool isDefault = true;
+    bool isFetchingBank = false;
+    String fetchedBankName = '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            ifscController.addListener(() async {
+              String text = ifscController.text;
+              if (text != text.toUpperCase()) {
+                int cursorPosition = ifscController.selection.base.offset;
+                ifscController.value = ifscController.value.copyWith(
+                  text: text.toUpperCase(),
+                  selection: TextSelection.collapsed(offset: cursorPosition),
+                );
+                text = text.toUpperCase();
+              }
+
+              if (text.length == 11) {
+                setModalState(() => isFetchingBank = true);
+                try {
+                  final res = await http.get(Uri.parse('https://ifsc.razorpay.com/$text'));
+                  if (res.statusCode == 200) {
+                    final data = jsonDecode(res.body);
+                    setModalState(() {
+                      fetchedBankName = '${data['BANK']} - ${data['BRANCH']}';
+                      if (bankNameController.text.isEmpty) {
+                        bankNameController.text = data['BANK'] ?? '';
+                      }
+                      isFetchingBank = false;
+                    });
+                  } else {
+                    setModalState(() {
+                      fetchedBankName = 'Invalid IFSC or Not Found';
+                      isFetchingBank = false;
+                    });
+                  }
+                } catch (e) {
+                  setModalState(() {
+                    fetchedBankName = 'Failed to fetch bank details';
+                    isFetchingBank = false;
+                  });
+                }
+              } else {
+                if (fetchedBankName.isNotEmpty) {
+                  setModalState(() {
+                    fetchedBankName = '';
+                  });
+                }
+              }
+            });
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Add Bank Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+                      child: const Icon(Icons.close, size: 18, color: Colors.black54),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTextField('Account Holder Name *', holderNameController),
+                      const SizedBox(height: 16),
+                      _buildTextField('Account Number *', accNoController, obscureText: true),
+                      const SizedBox(height: 16),
+                      _buildTextField('Confirm Account Number *', confirmAccNoController),
+                      const SizedBox(height: 16),
+                      _buildTextField('IFSC Code *', ifscController, maxLength: 11),
+                      
+                      if (isFetchingBank)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 6, left: 4),
+                          child: Text('Fetching bank details...', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                        )
+                      else if (fetchedBankName.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6, left: 4),
+                          child: Text(
+                            fetchedBankName, 
+                            style: TextStyle(
+                              fontSize: 12, 
+                              color: fetchedBankName.contains('Invalid') || fetchedBankName.contains('Failed') ? Colors.red : Colors.green, 
+                              fontWeight: FontWeight.w600
+                            )
+                          ),
+                        )
+                      else
+                        const Padding(
+                          padding: EdgeInsets.only(top: 6, left: 4),
+                          child: Text('e.g. SBIN0000502', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                        ),
+                        
+                      const SizedBox(height: 16),
+                      _buildTextField('Bank Name *', bankNameController),
+                      const SizedBox(height: 20),
+                      
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: Checkbox(
+                                value: isDefault,
+                                onChanged: (val) {
+                                  setModalState(() => isDefault = val ?? false);
+                                },
+                                activeColor: AppColors.primary,
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Set as default bank account', 
+                                style: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)
+                              )
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          side: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        child: const Text('Cancel', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                  onPressed: () async {
+                    if (holderNameController.text.trim().isEmpty || bankNameController.text.trim().isEmpty) {
+                      _showToast('Holder name and Bank name are required', isError: true);
+                      return;
+                    }
+
+                    if (accNoController.text.trim() != confirmAccNoController.text.trim()) {
+                      _showToast('Please confirm your account number', isError: true);
+                      return;
+                    }
+
+                    final accError = Validators.validateBankAccount(accNoController.text.trim());
+                    if (accError != null) {
+                      _showToast(accError, isError: true);
+                      return;
+                    }
+
+                    final ifscError = Validators.validateIfsc(ifscController.text.trim());
+                    if (ifscError != null) {
+                      _showToast(ifscError, isError: true);
+                      return;
+                    }
+                    
+                    Navigator.pop(ctx);
+                    setState(() => _isLoadingPaymentInfo = true);
+                    
+                    try {
+                      final payload = {
+                        'accountHolderName': holderNameController.text.trim(),
+                        'bankName': bankNameController.text.trim(),
+                        'accountNumber': accNoController.text.trim(),
+                        'ifscCode': ifscController.text.trim(),
+                        'isDefault': isDefault,
+                      };
+                      await ApiService().addBankAccount(payload);
+                      
+                      if (mounted) {
+                        _showToast('Bank account added successfully', isError: false);
+                        _loadAddress();
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        _showToast('Failed to save bank account', isError: true);
+                        setState(() => _isLoadingPaymentInfo = false);
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Save Bank Account', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildUpiSelection() {
+    if (_isLoadingPaymentInfo) return const Padding(padding: EdgeInsets.all(8), child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+    
+    if (_savedUpiAccounts.isEmpty || _selectedUpi == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _showAddUpiDialog,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add New UPI ID', style: TextStyle(fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary, width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_selectedUpi!['upiId'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  if (_selectedUpi!['label'] != null && _selectedUpi!['label'].toString().isNotEmpty)
+                    Text(_selectedUpi!['label'], style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                  builder: (ctx) => SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('Select UPI ID', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        ),
+                        ..._savedUpiAccounts.map((upi) => ListTile(
+                          title: Text(upi['upiId'] ?? ''),
+                          subtitle: upi['label'] != null && upi['label'].toString().isNotEmpty ? Text(upi['label']) : null,
+                          trailing: _selectedUpi != null && _selectedUpi!['id'] == upi['id'] ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
+                          onTap: () {
+                            setState(() => _selectedUpi = upi as Map<String, dynamic>);
+                            Navigator.pop(ctx);
+                          },
+                        )),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.add, color: AppColors.primary),
+                          title: const Text('Add New UPI ID', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showAddUpiDialog();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Change', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBankSelection() {
+    if (_isLoadingPaymentInfo) return const Padding(padding: EdgeInsets.all(8), child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+    
+    if (_savedBankAccounts.isEmpty || _selectedBank == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _showAddBankDialog,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add New Bank Account', style: TextStyle(fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary, width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_selectedBank!['bankName'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text('A/C: ${_selectedBank!['accountNumber']}', style: const TextStyle(fontSize: 13, color: AppColors.textPrimary)),
+                  const SizedBox(height: 2),
+                  Text(_selectedBank!['accountHolderName'] ?? '', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                  builder: (ctx) => SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('Select Bank Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        ),
+                        ..._savedBankAccounts.map((bank) => ListTile(
+                          title: Text(bank['bankName'] ?? ''),
+                          subtitle: Text('A/C: ${bank['accountNumber']}'),
+                          trailing: _selectedBank != null && _selectedBank!['id'] == bank['id'] ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
+                          onTap: () {
+                            setState(() => _selectedBank = bank as Map<String, dynamic>);
+                            Navigator.pop(ctx);
+                          },
+                        )),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.add, color: AppColors.primary),
+                          title: const Text('Add New Bank Account', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showAddBankDialog();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Change', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddGstDialog() {
+    final gstNumberController = TextEditingController();
+    final labelController = TextEditingController();
+    bool isDefault = true;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Add New GST Number', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTextField('GST Number *', gstNumberController),
+                    const SizedBox(height: 16),
+                    _buildTextField('Label (Optional)', labelController),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: isDefault,
+                          onChanged: (val) {
+                            setModalState(() => isDefault = val ?? false);
+                          },
+                          activeColor: AppColors.primary,
+                        ),
+                        const Text('Set as default GST number', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  child: const Text('Cancel', style: TextStyle(color: AppColors.textPrimary)),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final gstError = Validators.validateGst(gstNumberController.text.trim());
+                    if (gstError != null) {
+                      _showToast(gstError, isError: true);
+                      return;
+                    }
+                    
+                    Navigator.pop(ctx);
+                    setState(() => _isLoadingPaymentInfo = true);
+                    
+                    try {
+                      final payload = {
+                        'gstNumber': gstNumberController.text.trim().toUpperCase(),
+                        'label': labelController.text.trim(),
+                        'isDefault': isDefault,
+                      };
+                      await ApiService().addGstNumber(payload);
+                      
+                      if (mounted) {
+                        _showToast('GST number added successfully', isError: false);
+                        _loadAddress();
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        _showToast('Failed to save GST number', isError: true);
+                        setState(() => _isLoadingPaymentInfo = false);
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Save GST Number', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildGstSelection() {
+    if (_isLoadingPaymentInfo) return const Padding(padding: EdgeInsets.all(8), child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+    
+    if (_savedGstNumbers.isEmpty || _selectedGst == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _showAddGstDialog,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add New GST Number', style: TextStyle(fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary, width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_selectedGst!['gstNumber'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  if (_selectedGst!['label'] != null && _selectedGst!['label'].toString().isNotEmpty)
+                    Text(_selectedGst!['label'], style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                  builder: (ctx) => SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('Select GST Number', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        ),
+                        ..._savedGstNumbers.map((gst) => ListTile(
+                          title: Text(gst['gstNumber'] ?? ''),
+                          subtitle: gst['label'] != null && gst['label'].toString().isNotEmpty ? Text(gst['label']) : null,
+                          trailing: _selectedGst != null && _selectedGst!['id'] == gst['id'] ? const Icon(Icons.check_circle, color: AppColors.primary) : null,
+                          onTap: () {
+                            setState(() => _selectedGst = gst as Map<String, dynamic>);
+                            Navigator.pop(ctx);
+                          },
+                        )),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.add, color: AppColors.primary),
+                          title: const Text('Add New GST Number', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showAddGstDialog();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Change', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -383,17 +1221,18 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                _buildTextField('Full Name', _fullNameController),
+                _buildTextField('Full Name', _fullNameController, isRequired: true),
                 const SizedBox(height: 12),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: _buildTextField('Mobile', _mobileController, isPhone: true)),
+                    Expanded(child: _buildTextField('Mobile', _mobileController, isPhone: true, maxLength: 13, isRequired: true, readOnly: true, errorText: (_mobileController.text.isNotEmpty && !RegExp(r'^\d{10,13}$').hasMatch(_mobileController.text)) ? '10-13 digits' : null)),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildTextField('Alternate Contact', _altContactController, isPhone: true)),
+                    Expanded(child: _buildTextField('Alternate Contact', _altContactController, isPhone: true, maxLength: 13, errorText: (_altContactController.text.isNotEmpty && !RegExp(r'^\d{10,13}$').hasMatch(_altContactController.text)) ? '10-13 digits' : null)),
                   ],
                 ),
                 const SizedBox(height: 12),
-                _buildTextField('Email', _emailController),
+                _buildTextField('Email', _emailController, isRequired: true),
                 const SizedBox(height: 12),
                 
                 
@@ -547,7 +1386,12 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: ['9 AM - 12 PM', '12 PM - 3 PM', '3 PM - 6 PM'].map((slot) {
+                    children: [
+                      '9:00 AM - 11:00 AM', 
+                      '11:00 AM - 1:00 PM', 
+                      '2:00 PM - 4:00 PM', 
+                      '4:00 PM - 6:00 PM'
+                    ].map((slot) {
                       final isSelected = widget.requestData.timeSlot == slot;
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
@@ -596,10 +1440,8 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
                           const Icon(Icons.flash_on_rounded, color: Colors.orange, size: 20),
                         ],
                       ),
-                      if (widget.requestData.paymentMethod == 'upi') ...[
-                        const SizedBox(height: 8),
-                        _buildTextField('Enter UPI ID (e.g. name@bank)', _upiController),
-                      ],
+                      if (widget.requestData.paymentMethod == 'upi')
+                        _buildUpiSelection(),
                     ],
                   ),
                 ),
@@ -629,14 +1471,8 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
                           const Icon(Icons.account_balance_rounded, color: AppColors.primary, size: 20),
                         ],
                       ),
-                      if (widget.requestData.paymentMethod == 'bank') ...[
-                        const SizedBox(height: 8),
-                        _buildTextField('Account Holder Name', _accountNameController),
-                        const SizedBox(height: 8),
-                        _buildTextField('IFSC Code', _ifscController),
-                        const SizedBox(height: 8),
-                        _buildTextField('Account Number', _accountNumberController, isPhone: true),
-                      ],
+                      if (widget.requestData.paymentMethod == 'bank')
+                        _buildBankSelection(),
                     ],
                   ),
                 ),
@@ -669,7 +1505,7 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
                       ),
                       if (_hasGst) ...[
                         const SizedBox(height: 8),
-                        _buildTextField('GST Number', _gstController),
+                        _buildGstSelection(),
                       ],
                     ],
                   ),
@@ -718,7 +1554,7 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
                   child: SizedBox(
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: _canSubmit ? _submitRequest : null,
+                      onPressed: _submitRequestWithValidation,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         disabledBackgroundColor: AppColors.bgMuted,
@@ -738,18 +1574,30 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {bool isPhone = false, bool isRequired = false}) {
+  Widget _buildTextField(String label, TextEditingController controller, {bool isPhone = false, bool isRequired = false, String? errorText, int? maxLength, bool obscureText = false, bool readOnly = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '$label ${isRequired ? '*' : ''}'.trim(),
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+        Text.rich(
+          TextSpan(
+            text: label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+            children: [
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
           keyboardType: isPhone ? TextInputType.number : TextInputType.text,
+          maxLength: maxLength,
+          obscureText: obscureText,
+          readOnly: readOnly,
           onChanged: (v) => setState((){}),
           style: const TextStyle(fontSize: 14),
           decoration: InputDecoration(
@@ -757,6 +1605,8 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
             hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
             filled: true,
             fillColor: Colors.white,
+            errorText: errorText,
+            counterText: '',
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           ),
@@ -785,7 +1635,7 @@ class _SuccessDialog extends StatelessWidget {
               child: const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 40),
             ),
             const SizedBox(height: 16),
-            const Text('Request Placeda', style: AppTextStyles.headingLarge, textAlign: TextAlign.center),
+            const Text('Request Placed', style: AppTextStyles.headingLarge, textAlign: TextAlign.center),
             const SizedBox(height: 8),
             const Text('Admin will contact you soon.', style: AppTextStyles.bodyMedium, textAlign: TextAlign.center),
             const SizedBox(height: 24),
