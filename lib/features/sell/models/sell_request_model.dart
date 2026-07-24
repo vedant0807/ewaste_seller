@@ -5,8 +5,27 @@ class SellItemModel {
   Map<String, String> textValues = {};
   Map<String, String> dropdownValues = {};
 
+  bool get isComplete {
+    if (selectedCategoryModel == null) return false;
+    
+    // Photo is required
+    if (localImagePaths.isEmpty && uploadedImageUrls.isEmpty) return false;
+
+    final attrs = selectedCategoryModel!['attributes'] as List<dynamic>? ?? [];
+    for (final attrMap in attrs) {
+      final attr = attrMap as Map<String, dynamic>;
+      final slug = attr['slug'] as String;
+      if (attr['inputType'] == 'dropdown') {
+        if (dropdownValues[slug]?.isEmpty ?? true) return false;
+      } else {
+        if (textValues[slug]?.isEmpty ?? true) return false;
+      }
+    }
+    return true;
+  }
+
   int get estimatedPrice {
-    if (selectedCategoryModel == null) return 0;
+    if (!isComplete) return 0;
     
     final basePrices = <String, int>{
       'Mobile': 4000,

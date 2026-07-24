@@ -128,7 +128,7 @@ class _RegistrationBottomSheetState extends State<RegistrationBottomSheet> {
           if (!mounted) return;
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const MainScreen()),
+            MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 0)),
             (route) => false,
           );
           return;

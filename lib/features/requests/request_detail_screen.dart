@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
-import 'package:dotted_border/dotted_border.dart';
 import 'package:seller_ewaste/core/services/api_service.dart';
 
 class RequestDetailScreen extends StatefulWidget {
@@ -77,6 +76,43 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
     }
   }
 
+  void _showImagePreview(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              panEnabled: true,
+              boundaryMargin: const EdgeInsets.all(20),
+              minScale: 0.5,
+              maxScale: 4,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white, size: 50),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final device = _data['device'] ?? 'Unknown Device';
@@ -110,66 +146,137 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
     final notes = _data['notes']?.toString() ?? '';
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.bgPage,
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
-        titleSpacing: 0,
-        title: const Text('Detail Pickup Request', style: TextStyle(color: Colors.white, fontSize: 18)),
+        centerTitle: true,
+        title: Text('Request Details', style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
       ),
       body: Column(
         children: [
-          // Top Banner
-          Container(
-            color: AppColors.primaryDark,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    'Order Status : $status',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(date, style: const TextStyle(color: Colors.white, fontSize: 14)),
-                    if (time.isNotEmpty) Text(time, style: const TextStyle(color: Colors.white, fontSize: 14)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          
           Expanded(
             child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.xl),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Status Header Card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgCard,
+                      borderRadius: BorderRadius.circular(AppRadius.xl),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Order Status', style: AppTextStyles.bodySmall),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: status == 'REJECTED' || status == 'CANCELLED' ? Colors.red.shade50 : AppColors.primaryLight,
+                                borderRadius: BorderRadius.circular(AppRadius.full),
+                              ),
+                              child: Text(
+                                status,
+                                style: TextStyle(
+                                  color: status == 'REJECTED' || status == 'CANCELLED' ? Colors.red.shade700 : AppColors.primaryDark,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(width: 1, height: 40, color: AppColors.border), // Divider
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('Date & Time', style: AppTextStyles.bodySmall),
+                            const SizedBox(height: 6),
+                            Text(date, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary)),
+                            if (time.isNotEmpty) ...[
+                               const SizedBox(height: 2),
+                               Text(time, style: AppTextStyles.bodySmall.copyWith(fontWeight: FontWeight.w500)),
+                            ]
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Tracking Progress
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgCard,
+                      borderRadius: BorderRadius.circular(AppRadius.xl),
+                      border: Border.all(color: AppColors.border),
+                    ),
                     child: _TrackerProgress(currentStep: step, payoutMethod: payoutMethod),
                   ),
-                  const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+                  const SizedBox(height: 16),
                   
+                  // Info Note
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3E0), // Light orange background for note
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: const Color(0xFFFFCC80)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline, color: Color(0xFFF57C00), size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'The amount shown is an approximate value. The final amount will be confirmed after we inspect your item.',
+                            style: AppTextStyles.bodySmall.copyWith(
+                                color: const Color(0xFFE65100),
+                                height: 1.4,fontWeight: FontWeight.bold,fontSize: 10
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Products Section
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgCard,
+                      borderRadius: BorderRadius.circular(AppRadius.xl),
+                      border: Border.all(color: AppColors.border),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Products', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        const SizedBox(height: 8),
+                        const Text('Products', style: AppTextStyles.headingMedium),
+                        const SizedBox(height: 12),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.devices_other_rounded, size: 28),
-                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryLight,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.devices_other_rounded, size: 24, color: AppColors.primary),
+                            ),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,111 +348,142 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
 
                   // Images Section
                   if (images.isNotEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.bgCard,
+                        borderRadius: BorderRadius.circular(AppRadius.xl),
+                        border: Border.all(color: AppColors.border),
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Images', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          const SizedBox(height: 8),
+                          const Text('Images', style: AppTextStyles.headingMedium),
+                          const SizedBox(height: 12),
                           SizedBox(
                             height: 80,
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
                               itemCount: images.length,
                               itemBuilder: (context, index) {
-                                return Container(
-                                  width: 80,
-                                  margin: const EdgeInsets.only(right: 8),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey.shade300),
-                                  ),
-                                  child: Image.network(
-                                    images[index],
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey),
+                                return GestureDetector(
+                                  onTap: () => _showImagePreview(images[index]),
+                                  child: Container(
+                                    width: 80,
+                                    margin: const EdgeInsets.only(right: 8),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.grey.shade300),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        images[index],
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey),
+                                      ),
+                                    ),
                                   ),
                                 );
                               },
                             ),
                           ),
-                          const SizedBox(height: 16),
                         ],
                       ),
                     ),
                   ],
 
-                  const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-
                   // Notes / Timeslot
                   if (notes.isNotEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(
-                        'Details : $notes',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.bgCard,
+                        borderRadius: BorderRadius.circular(AppRadius.xl),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Details', style: AppTextStyles.headingMedium),
+                          const SizedBox(height: 8),
+                          Text(notes, style: AppTextStyles.bodyMedium),
+                        ],
                       ),
                     ),
-                    const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
                   ],
 
                   const SizedBox(height: 16),
 
                   // Customer Info
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: DottedBorder(
-                      options: RectDottedBorderOptions(
-                        color: AppColors.primary,
-                        strokeWidth: 1.5,
-                        dashPattern: const [6, 4],
-                      ),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgCard,
+                      borderRadius: BorderRadius.circular(AppRadius.xl),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Customer Info', style: AppTextStyles.headingMedium),
+                        const SizedBox(height: 12),
+                        Row(
                           children: [
-                            const Text('Customer Info:', style: TextStyle(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 8),
-                            const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-                            const SizedBox(height: 8),
-                            Text('Customer Name : $customerName', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Text('Customer Mobile : ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                Text(customerMobile, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Text('Customer Email : ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                Expanded(child: Text(customerEmail, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary))),
-                              ],
-                            ),
+                            const Icon(Icons.person_outline, size: 20, color: AppColors.textSecondary),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(customerName, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600))),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.phone_outlined, size: 20, color: AppColors.textSecondary),
+                            const SizedBox(width: 8),
+                            Text(customerMobile, style: AppTextStyles.bodyMedium),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.email_outlined, size: 20, color: AppColors.textSecondary),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(customerEmail, style: AppTextStyles.bodyMedium)),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
 
                   const SizedBox(height: 16),
 
                   // Customer Address
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgCard,
+                      borderRadius: BorderRadius.circular(AppRadius.xl),
+                      border: Border.all(color: AppColors.border),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Customer Address:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        const Text('Customer Address', style: AppTextStyles.headingMedium),
                         const SizedBox(height: 12),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.location_on, color: Colors.red, size: 28),
-                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.location_on, color: Colors.red, size: 24),
+                            ),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,7 +509,6 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
             ),
           ),
           
-
         ],
       ),
     );

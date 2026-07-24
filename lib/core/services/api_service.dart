@@ -16,8 +16,8 @@ class ApiService {
   //   return Platform.isAndroid ? 'https://ewasteapi.techgigs.in' : 'https://ewasteapi.techgigs.in';
   // }
 
-  static const String baseUrl = "http://192.168.1.6:3000";
-  // static const String baseUrl = "https://ewasteapi.techgigs.in";
+  // static const String baseUrl = "http://192.168.1.6:3000";
+  static const String baseUrl = "https://ewasteapi.techgigs.in";
   // static const String baseUrl = "http://10.39.42.95:3000";
 
 

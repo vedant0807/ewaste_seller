@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/core/services/api_service.dart';
 
@@ -22,6 +24,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   late String _selectedType;
   late bool _isDefault;
   bool _isSaving = false;
+  bool _isFetchingLocation = false;
 
   List<dynamic> _cities = [];
   bool _isLoadingCities = false;
@@ -74,6 +77,51 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     }
   }
 
+  Future<void> _fetchCurrentLocation() async {
+    setState(() => _isFetchingLocation = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location services are disabled.')));
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location permissions are denied')));
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location permissions are permanently denied, we cannot request permissions.')));
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final Geocoding geocoding = Geocoding();
+      List<Placemark> placemarks = await geocoding.placemarkFromCoordinates(position.latitude, position.longitude);
+      
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        
+        setState(() {
+          _addressController.text = '${place.street ?? ''}, ${place.subLocality ?? ''}'.trim().replaceAll(RegExp(r'^,\s*'), '');
+          _cityController.text = place.locality ?? '';
+          _stateController.text = place.administrativeArea ?? '';
+          _pincodeController.text = place.postalCode ?? '';
+          _selectedCity = place.locality;
+        });
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to get location: $e')));
+    } finally {
+      if (mounted) setState(() => _isFetchingLocation = false);
+    }
+  }
+
   @override
   void dispose() {
     _addressController.dispose();
@@ -84,7 +132,14 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   }
 
   Future<void> _saveAddress() async {
-    if (!_formKey.currentState!.validate()) return;
+    bool isCityValid = _selectedCity != null && _selectedCity!.trim().isNotEmpty;
+    bool isFormValid = _formKey.currentState!.validate();
+    
+    if (!isCityValid) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select a city')));
+      return;
+    }
+    if (!isFormValid) return;
     
     setState(() => _isSaving = true);
     
@@ -140,6 +195,20 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              OutlinedButton.icon(
+                onPressed: _isFetchingLocation ? null : _fetchCurrentLocation,
+                icon: _isFetchingLocation 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.my_location),
+                label: const Text('Use Current Location'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+              ),
+              const SizedBox(height: 20),
               _buildLabel('Pickup Address *'),
               const SizedBox(height: 8),
               TextFormField(
@@ -180,25 +249,40 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                                 height: 50,
                                 child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
                               )
-                            : DropdownButtonFormField<String>(
-                                value: _selectedCity,
-                                decoration: _inputDecoration('Select City'),
-                                isExpanded: true,
-                                icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
-                                items: _cities.map<DropdownMenuItem<String>>((city) {
-                                  final cityName = city['name']?.toString() ?? '';
-                                  return DropdownMenuItem<String>(
-                                    value: cityName,
-                                    child: Text(cityName, overflow: TextOverflow.ellipsis),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
+                            : DropdownMenu<String>(
+                                initialSelection: _selectedCity,
+                                expandedInsets: EdgeInsets.zero,
+                                hintText: 'Select City',
+                                onSelected: (value) {
                                   setState(() {
                                     _selectedCity = value;
                                     _cityController.text = value ?? '';
                                   });
                                 },
-                                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                                dropdownMenuEntries: _cities.map((city) {
+                                  final cityName = city['name']?.toString() ?? '';
+                                  return DropdownMenuEntry<String>(
+                                    value: cityName,
+                                    label: cityName,
+                                  );
+                                }).toList(),
+                                inputDecorationTheme: InputDecorationTheme(
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8FAFC),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade200)),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade200)),
+                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                                ),
+                                trailingIcon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+                                selectedTrailingIcon: const Icon(Icons.keyboard_arrow_up_rounded, color: AppColors.primary),
+                                menuStyle: MenuStyle(
+                                  backgroundColor: const WidgetStatePropertyAll(Colors.white),
+                                  elevation: const WidgetStatePropertyAll(8),
+                                  shape: WidgetStatePropertyAll(
+                                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
                               ),
                       ],
                     ),

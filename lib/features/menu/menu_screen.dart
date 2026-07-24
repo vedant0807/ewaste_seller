@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/features/auth/login_screen.dart';
+import 'package:seller_ewaste/features/dashboard/dashboard_screen.dart';
 import 'package:seller_ewaste/features/orders/orders_screen.dart';
 import 'package:seller_ewaste/features/menu/profile_screen.dart';
 import 'package:seller_ewaste/features/menu/my_addresses_screen.dart';
@@ -40,6 +41,10 @@ class _MenuScreenState extends State<MenuScreen> {
   @override
   Widget build(BuildContext context) {
     final items = [
+      (Icons.dashboard, 'My Dashboard', () {
+        Navigator.pop(context);
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
+      }),
       (Icons.receipt_long_rounded, 'My Orders', () {
         Navigator.pop(context);
         Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersScreen()));

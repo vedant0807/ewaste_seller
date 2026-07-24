@@ -33,26 +33,32 @@ class AppBottomNavBar extends StatelessWidget {
           child: Row(
             children: [
               _NavItem(
-                icon: Icons.dashboard_rounded,
-                label: 'Dashboard',
+                icon: Icons.sell_rounded,
+                label: 'Sell',
                 isActive: currentIndex == 0,
                 onTap: () => onTap(0),
               ),
+              // _NavItem(
+              //   icon: Icons.dashboard,
+              //   label: 'Dashboard',
+              //   isActive: currentIndex == 1,
+              //   onTap: () => onTap(1),
+              // ),
               _NavItem(
-                icon: Icons.sell_rounded,
-                label: 'Sell',
+                icon: Icons.receipt_long_rounded,
+                label: 'My Requests',
                 isActive: currentIndex == 1,
                 onTap: () => onTap(1),
               ),
               _NavItem(
-                icon: Icons.receipt_long_rounded,
-                label: 'My Requests',
+                icon: Icons.wallet,
+                label: 'Wallet',
                 isActive: currentIndex == 2,
                 onTap: () => onTap(2),
               ),
               _NavItem(
-                icon: Icons.wallet,
-                label: 'Wallet',
+                icon: Icons.person,
+                label: 'Profile',
                 isActive: currentIndex == 3,
                 onTap: () => onTap(3),
               ),

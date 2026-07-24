@@ -6,6 +6,7 @@ import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/core/services/api_service.dart';
 import 'package:seller_ewaste/features/sell/models/sell_request_model.dart';
 import 'package:seller_ewaste/features/sell/screens/sell_checkout_screen.dart';
+import 'package:seller_ewaste/features/menu/menu_screen.dart';
 
 class SellItemScreen extends StatefulWidget {
   final SellRequestModel requestData;
@@ -148,25 +149,9 @@ class _SellItemScreenState extends State<SellItemScreen> {
   // Removed _showCategoryPicker bottom sheet
 
   bool get _canProceedCurrentItem {
-    if (widget.requestData.selectedCategoryModel == null) return false;
-    final attrs = widget.requestData.selectedCategoryModel!['attributes'] as List<dynamic>? ?? [];
-    for (final attrMap in attrs) {
-      final attr = attrMap as Map<String, dynamic>;
-      if (attr['isRequired'] == true) {
-        final slug = attr['slug'] as String;
-        if (attr['inputType'] == 'dropdown') {
-          if (widget.requestData.dropdownValues[slug]?.isEmpty ?? true) return false;
-        } else {
-          if (widget.requestData.textValues[slug]?.isEmpty ?? true) return false;
-        }
-      }
-    }
-    return true;
+    return widget.requestData.currentItem.isComplete;
   }
 
-  bool get _canCheckout {
-    return _canProceedCurrentItem || widget.requestData.items.isNotEmpty;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -185,6 +170,7 @@ class _SellItemScreenState extends State<SellItemScreen> {
       },
       child: Scaffold(
         backgroundColor: AppColors.bgPage,
+        drawer: const MenuScreen(),
         appBar: AppBar(
           backgroundColor: AppColors.primary,
           iconTheme: const IconThemeData(color: Colors.white),
@@ -201,7 +187,14 @@ class _SellItemScreenState extends State<SellItemScreen> {
                     });
                   },
                 )
-              : null,
+              : Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
+                    onPressed: () {
+                      Scaffold.of(context).openDrawer();
+                    },
+                  ),
+                ),
           centerTitle: true,
           title: Text(
             widget.requestData.selectedCategoryModel != null ? 'Item Details' : 'Sell E-Waste',
@@ -215,11 +208,10 @@ class _SellItemScreenState extends State<SellItemScreen> {
               padding: const EdgeInsets.all(20),
               children: [
                 if (widget.requestData.selectedCategoryModel == null) ...[
-                  const Text('What are you selling?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                  const Text('What do you want to sell today?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
                   const SizedBox(height: 8),
-                  const Text('Select a category to continue', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-                  const SizedBox(height: 24),
-                  
+                  // const Text('Select a category to continue', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+
                   if (_isLoadingCategories)
                     const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
                   else if (_categoriesError != null)
@@ -338,40 +330,26 @@ class _SellItemScreenState extends State<SellItemScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Total Value', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.requestData.totalEstimatedPriceRange,
-                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-                          ),
-                        ],
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _canProceedCurrentItem ? () {
-                          setState(() {
-                            widget.requestData.addCurrentItem();
-                            for (var c in _textControllers.values) { c.clear(); }
-                          });
-                        } : null,
-                        icon: const Icon(Icons.add_rounded, size: 20),
-                        label: const Text('Add New Item', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary, width: 1.5),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        ),
-                      ),
+                      if (_canProceedCurrentItem)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Approx Range', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.requestData.totalEstimatedPriceRange,
+                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                            ),
+                          ],
+                        )
+                      else
+                        const SizedBox(),
                     ],
                   ),
                   const SizedBox(height: 24),
                 ], // Close else block
                 
                 if (widget.requestData.selectedCategoryModel != null) ...[
-                  // Device Info Card
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -384,42 +362,185 @@ class _SellItemScreenState extends State<SellItemScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Device Info', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Photos*', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.bgPage,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${widget.requestData.localImagePaths.length}/5',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 4),
-                        const Text('Provide accurate details for the best price', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        const Text('Add at least one clear photo of your item', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        const SizedBox(height: 16),
+
+                        SizedBox(
+                          height: 90,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: widget.requestData.localImagePaths.length < 5
+                                ? widget.requestData.localImagePaths.length + 1
+                                : 5,
+                            itemBuilder: (context, index) {
+                              if (index == widget.requestData.localImagePaths.length) {
+                                return GestureDetector(
+                                  onTap: _isUploading ? null : _showImageSourceBottomSheet,
+                                  child: Container(
+                                    width: 90,
+                                    margin: const EdgeInsets.only(right: 12),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.bgPage,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: AppColors.border),
+                                    ),
+                                    child: _isUploading
+                                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2))
+                                        : const Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.add_a_photo_rounded, color: AppColors.primary, size: 28),
+                                        SizedBox(height: 8),
+                                        Text('Add', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              final path = widget.requestData.localImagePaths[index];
+                              return GestureDetector(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => Dialog(
+                                      backgroundColor: Colors.transparent,
+                                      insetPadding: const EdgeInsets.all(16),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Align(
+                                            alignment: Alignment.topRight,
+                                            child: IconButton(
+                                              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
+                                              onPressed: () => Navigator.pop(context),
+                                            ),
+                                          ),
+                                          Flexible(
+                                            child: InteractiveViewer(
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(12),
+                                                child: Image.file(File(path)),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  width: 90,
+                                  margin: const EdgeInsets.only(right: 12),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    image: DecorationImage(image: FileImage(File(path)), fit: BoxFit.cover),
+                                    border: Border.all(color: AppColors.border),
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.topRight,
+                                    child: GestureDetector(
+                                      onTap: () => setState(() => widget.requestData.localImagePaths.removeAt(index)),
+                                      child: Container(
+                                        margin: const EdgeInsets.all(6),
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Item Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        const Text('Fill the details of your item', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                         const SizedBox(height: 20),
-                        
+
                         // Dynamic Fields
-                        ...(widget.requestData.selectedCategoryModel!['attributes'] as List<dynamic>? ?? []).map((attrObj) {
-                          final attr = attrObj as Map<String, dynamic>;
-                          final isRequired = attr['isRequired'] == true;
-                          final name = attr['name'] ?? '';
-                          final slug = attr['slug'] ?? '';
-                          final inputType = attr['inputType'] ?? 'text';
-                          
-                          final optionsList = attr['options'] as List<dynamic>? ?? [];
-                          final options = optionsList.map((e) {
-                            if (e is Map) return (e['name'] ?? e['value'] ?? e.toString()).toString();
-                            return e.toString();
-                          }).toList();
+                        ...() {
+                          final attrs = widget.requestData.selectedCategoryModel!['attributes'] as List<dynamic>? ?? [];
+                          final List<Widget> rows = [];
 
-                          final inputDecoration = InputDecoration(
-                            labelText: isRequired ? '$name *' : name,
-                            filled: true,
-                            fillColor: AppColors.bgPage,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.transparent)),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-                          );
+                          Widget buildField(Map<String, dynamic> attr) {
+                            final isRequired = true; // All attributes must be filled now
+                            final name = attr['name'] ?? '';
+                            final slug = attr['slug'] ?? '';
+                            final inputType = attr['inputType'] ?? 'text';
 
-                          if (inputType == 'dropdown') {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: DropdownMenu<String>(
+                            final optionsList = attr['options'] as List<dynamic>? ?? [];
+                            final options = optionsList.map((e) {
+                              if (e is Map) return (e['name'] ?? e['value'] ?? e.toString()).toString();
+                              return e.toString();
+                            }).toList();
+
+                            final inputDecoration = InputDecoration(
+                              labelText: isRequired ? '$name*' : name,
+                              labelStyle: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                                fontFamily: 'Poppins', // Optional
+                              ),
+                              filled: true,
+                              fillColor: AppColors.bgPage,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.transparent)),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                            );
+
+                            if (inputType == 'dropdown') {
+                              return DropdownMenu<String>(
                                 initialSelection: widget.requestData.dropdownValues[slug],
                                 expandedInsets: EdgeInsets.zero,
-                                label: Text(isRequired ? '$name *' : name),
+                                label: Text(isRequired ? '$name*' : name,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
+                                    fontFamily: 'Poppins', // Optional
+                                  ),),
                                 onSelected: (v) {
                                   if (v != null) setState(() => widget.requestData.dropdownValues[slug] = v);
                                 },
@@ -441,124 +562,47 @@ class _SellItemScreenState extends State<SellItemScreen> {
                                     RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
                                 ),
-                              ),
-                            );
-                          } else {
-                            TextEditingController ctrl = _textControllers.putIfAbsent(slug, () => TextEditingController());
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: TextField(
+                              );
+                            } else {
+                              TextEditingController ctrl = _textControllers.putIfAbsent(slug, () => TextEditingController());
+                              return TextField(
                                 controller: ctrl,
                                 onChanged: (v) => setState(() => widget.requestData.textValues[slug] = v),
                                 decoration: inputDecoration,
-                              ),
+                              );
+                            }
+                          }
+
+                          for (int i = 0; i < attrs.length; i += 2) {
+                            final attr1 = attrs[i] as Map<String, dynamic>;
+                            final field1 = buildField(attr1);
+
+                            Widget? field2;
+                            if (i + 1 < attrs.length) {
+                              final attr2 = attrs[i + 1] as Map<String, dynamic>;
+                              field2 = buildField(attr2);
+                            }
+
+                            rows.add(
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: field1),
+                                    const SizedBox(width: 16),
+                                    Expanded(child: field2 ?? const SizedBox()),
+                                  ],
+                                ),
+                              )
                             );
                           }
-                        }),
+                          return rows;
+                        }(),
                       ],
                     ),
                   ),
-                  
-                  const SizedBox(height: 24),
                   
                   // Photos Card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Photos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppColors.bgPage,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '${widget.requestData.localImagePaths.length}/5',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        const Text('Add clear photos of your device (Optional)', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                        const SizedBox(height: 16),
-                        
-                        SizedBox(
-                          height: 90,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: widget.requestData.localImagePaths.length < 5
-                                ? widget.requestData.localImagePaths.length + 1
-                                : 5,
-                            itemBuilder: (context, index) {
-                              if (index == widget.requestData.localImagePaths.length) {
-                                return GestureDetector(
-                                  onTap: _isUploading ? null : _showImageSourceBottomSheet,
-                                  child: Container(
-                                    width: 90,
-                                    margin: const EdgeInsets.only(right: 12),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.bgPage,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: AppColors.border),
-                                    ),
-                                    child: _isUploading 
-                                      ? const Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2))
-                                      : const Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.add_a_photo_rounded, color: AppColors.primary, size: 28),
-                                            SizedBox(height: 8),
-                                            Text('Add', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
-                                          ],
-                                        ),
-                                  ),
-                                );
-                              }
-                              
-                              final path = widget.requestData.localImagePaths[index];
-                              return Container(
-                                width: 90,
-                                margin: const EdgeInsets.only(right: 12),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  image: DecorationImage(image: FileImage(File(path)), fit: BoxFit.cover),
-                                  border: Border.all(color: AppColors.border),
-                                ),
-                                child: Align(
-                                  alignment: Alignment.topRight,
-                                  child: GestureDetector(
-                                    onTap: () => setState(() => widget.requestData.localImagePaths.removeAt(index)),
-                                    child: Container(
-                                      margin: const EdgeInsets.all(6),
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.black54, 
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(Icons.close, size: 14, color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
 
                 const SizedBox(height: 40), // Bottom padding
@@ -572,47 +616,149 @@ class _SellItemScreenState extends State<SellItemScreen> {
               padding: const EdgeInsets.all(20.0),
               child: SizedBox(
                 height: 52,width: double.infinity,
+                child:Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _canProceedCurrentItem
+                            ? () {
+                          setState(() {
+                            widget.requestData.addCurrentItem();
+                            for (var c in _textControllers.values) {
+                              c.clear();
+                            }
+                          });
+                        }
+                            : null,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(
+                            color: AppColors.primary,
+                            width: 1.5,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          '+Add New Item',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _canProceedCurrentItem
+                            ? () async {
+                          if (_canProceedCurrentItem) {
+                            widget.requestData.addCurrentItem();
+                            for (var c in _textControllers.values) {
+                              c.clear();
+                            }
+                          }
+
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => SellCheckoutScreen(
+                                requestData: widget.requestData,
+                              ),
+                            ),
+                          ).then((wasEdit) {
+                            if (mounted) {
+                              setState(() {
+                                if (wasEdit == true) {
+                                  widget.requestData.textValues.forEach((key, value) {
+                                    if (_textControllers.containsKey(key)) {
+                                      _textControllers[key]!.text = value;
+                                    } else {
+                                      _textControllers[key] =
+                                          TextEditingController(text: value);
+                                    }
+                                  });
+                                } else {
+                                  widget.requestData.currentItem = SellItemModel();
+                                  widget.requestData.textValues.clear();
+                                  widget.requestData.dropdownValues.clear();
+                                  for (var c in _textControllers.values) {
+                                    c.clear();
+                                  }
+                                }
+                              });
+                            }
+                          });
+                        }
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          disabledBackgroundColor: AppColors.bgMuted,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          'Next',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (widget.requestData.items.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: SizedBox(
+                height: 52,
+                width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _canCheckout ? () async {
-                    if (_canProceedCurrentItem) {
-                      widget.requestData.addCurrentItem();
-                      for (var c in _textControllers.values) { c.clear(); }
-                    }
-                    
-                    final selectedAddress = null; // No longer passing this
+                  onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => SellCheckoutScreen(requestData: widget.requestData)),
+                      MaterialPageRoute(
+                        builder: (_) => SellCheckoutScreen(requestData: widget.requestData),
+                      ),
                     ).then((wasEdit) {
-                         if (mounted) {
-                           setState(() {
-                             if (wasEdit == true) {
-                               widget.requestData.textValues.forEach((key, value) {
-                                 if (_textControllers.containsKey(key)) {
-                                   _textControllers[key]!.text = value;
-                                 } else {
-                                   _textControllers[key] = TextEditingController(text: value);
-                                 }
-                               });
-                             } else {
-                               // Reset for new item
-                               widget.requestData.currentItem = SellItemModel();
-                               widget.requestData.textValues.clear();
-                               widget.requestData.dropdownValues.clear();
-                               for (var c in _textControllers.values) { c.clear(); }
-                             }
-                           });
-                         }
-                      });
-                  } : null,
+                      if (mounted) {
+                        setState(() {
+                          if (wasEdit == true) {
+                            widget.requestData.textValues.forEach((key, value) {
+                              if (_textControllers.containsKey(key)) {
+                                _textControllers[key]!.text = value;
+                              } else {
+                                _textControllers[key] = TextEditingController(text: value);
+                              }
+                            });
+                          } else {
+                            widget.requestData.currentItem = SellItemModel();
+                            widget.requestData.textValues.clear();
+                            widget.requestData.dropdownValues.clear();
+                            for (var c in _textControllers.values) {
+                              c.clear();
+                            }
+                          }
+                        });
+                      }
+                    });
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    disabledBackgroundColor: AppColors.bgMuted,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 0,
                   ),
-                  child: const Text('Checkout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: Text('Checkout (${widget.requestData.items.length} items)', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
             ),

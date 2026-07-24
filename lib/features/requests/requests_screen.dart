@@ -120,6 +120,33 @@ class _RequestsScreenState extends State<RequestsScreen>
                 style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
               ),
             ),
+            // Padding(
+            //   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: 4),
+            //   child: Container(
+            //     padding: const EdgeInsets.all(12),
+            //     decoration: BoxDecoration(
+            //       color: const Color(0xFFFFF3E0), // Light orange background for note
+            //       borderRadius: BorderRadius.circular(AppRadius.md),
+            //       border: Border.all(color: const Color(0xFFFFCC80)),
+            //     ),
+            //     child: Row(
+            //       crossAxisAlignment: CrossAxisAlignment.start,
+            //       children: [
+            //         const Icon(Icons.info_outline, color: Color(0xFFF57C00), size: 20),
+            //         const SizedBox(width: 12),
+            //         Expanded(
+            //           child: Text(
+            //             'The amount shown is an approximate value. The final amount will be confirmed after we inspect your item.',
+            //             style: AppTextStyles.bodySmall.copyWith(
+            //               color: const Color(0xFFE65100),
+            //               height: 1.4,fontWeight: FontWeight.bold,fontSize: 10
+            //             ),
+            //           ),
+            //         ),
+            //       ],
+            //     ),
+            //   ),
+            // ),
 
             // Tabs
             // Padding(
@@ -171,7 +198,7 @@ class _RequestsScreenState extends State<RequestsScreen>
         onPressed: () {
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 1)),
+            MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 0)),
             (route) => false,
           );
         },
@@ -384,6 +411,33 @@ class _RequestCard extends StatelessWidget {
                     ],
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3E0),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFFFCC80)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline, color: Color(0xFFF57C00), size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'The amount shown is an approximate value. The final amount will be confirmed after we inspect your item.',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: const Color(0xFFE65100),
+                          height: 1.4,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

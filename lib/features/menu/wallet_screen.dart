@@ -363,7 +363,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              Row(
+              /* Row(
                 children: [
                   _buildFilterChip('All'),
                   const SizedBox(width: 8),
@@ -371,7 +371,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   const SizedBox(width: 8),
                   _buildFilterChip('Debits'),
                 ],
-              ),
+              ), */
             ],
           ),
           const SizedBox(height: 16),

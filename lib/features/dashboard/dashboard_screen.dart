@@ -71,20 +71,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bgPage,
-      drawer: const MenuScreen(),
+      // drawer: const MenuScreen(),
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
         centerTitle: true,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
-            onPressed: () {
-              Scaffold.of(context).openDrawer();
-            },
-          ),
-        ),
+        // leading: Builder(
+        //   builder: (context) => IconButton(
+        //     icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
+        //     onPressed: () {
+        //       Scaffold.of(context).openDrawer();
+        //     },
+        //   ),
+        // ),
         title: Text('Dashboard', style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
       ),
       body: SafeArea(

@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:seller_ewaste/core/services/api_service.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/features/main/main_screen.dart';
@@ -21,12 +23,38 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _otpSent = false;
   bool _loading = false;
   String? _verificationId;
+  int _resendTimer = 60;
+  Timer? _timer;
+  bool _canResend = false;
 
   @override
   void dispose() {
+    _timer?.cancel();
     _phoneController.dispose();
     _otpController.dispose();
     super.dispose();
+  }
+
+  void _startTimer() {
+    setState(() {
+      _resendTimer = 60;
+      _canResend = false;
+    });
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        if (_resendTimer > 0) {
+          setState(() {
+            _resendTimer--;
+          });
+        } else {
+          setState(() {
+            _canResend = true;
+          });
+          _timer?.cancel();
+        }
+      }
+    });
   }
 
   Future<void> _callBackendLogin(User user) async {
@@ -74,14 +102,14 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         if (mounted) {
           setState(() => _loading = false);
-          _showSnack('Backend login failed: ${response.statusCode}');
+          _showToast('Backend login failed: ${response.statusCode}');
         }
       }
     } catch (e) {
       debugPrint('Login error: $e');
       if (mounted) {
         setState(() => _loading = false);
-        _showSnack('Network error: Failed to login');
+        _showToast('Network error: Failed to login');
       }
     }
   }
@@ -91,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final error = Validators.validateMobile(phone);
     if (error != null) {
-      _showSnack(error);
+      _showToast(error);
       return;
     }
 
@@ -112,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
       verificationFailed: (FirebaseAuthException e) {
         if (mounted) {
           setState(() => _loading = false);
-          _showSnack(e.message ?? 'Verification failed');
+          _showToast(e.message ?? 'Verification failed');
         }
       },
 
@@ -123,7 +151,8 @@ class _LoginScreenState extends State<LoginScreen> {
             _otpSent = true;
             _verificationId = verificationId;
           });
-          _showSnack('OTP sent successfully');
+          _startTimer();
+          _showToast('OTP sent successfully', isError: false);
         }
       },
 
@@ -137,12 +166,12 @@ class _LoginScreenState extends State<LoginScreen> {
     final otp = _otpController.text.trim();
 
     if (otp.length != 6) {
-      _showSnack('Enter the 6-digit OTP');
+      _showToast('Enter the 6-digit OTP');
       return;
     }
 
     if (_verificationId == null) {
-      _showSnack('Please request OTP first');
+      _showToast('Please request OTP first');
       return;
     }
 
@@ -162,20 +191,37 @@ class _LoginScreenState extends State<LoginScreen> {
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        _showSnack(e.message ?? 'Invalid OTP');
+        _showToast('Verification Failed: The code is incorrect. Please try again.');
       }
     } catch (e) {
       debugPrint('OTP verify error: $e');
       if (mounted) {
         setState(() => _loading = false);
-        _showSnack('Error: Failed to verify OTP');
+        _showToast('Error: Failed to verify OTP');
       }
     }
   }
 
-  void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
+  void _showToast(String msg, {bool isError = true}) {
+    final fToast = FToast();
+    fToast.init(context);
+    
+    Widget toast = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(32.0),
+        color: isError ? Colors.red : Colors.green,
+      ),
+      child: Text(
+        msg,
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+      ),
+    );
+
+    fToast.showToast(
+      child: toast,
+      gravity: ToastGravity.BOTTOM,
+      toastDuration: const Duration(seconds: 3),
     );
   }
 
@@ -204,22 +250,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text('Welcome Back 👋', style: AppTextStyles.displayMedium),
+              const Text('Welcome', style: AppTextStyles.displayMedium),
               const SizedBox(height: 6),
               const Text(
-                'Sign in to your ReCircle Sell account',
-                style: AppTextStyles.bodyMedium,
+                'Enter mobile number to get started.',
+                style: AppTextStyles.bodyLarge,
               ),
               const SizedBox(height: 36),
-
-              // Phone Field
-              Text(
-                'Phone Number',
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.bgCard,
@@ -297,11 +334,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 GestureDetector(
-                  onTap: _loading ? null : _sendOtp,
-                  child: const Text(
-                    'Resend OTP',
+                  onTap: (_loading || !_canResend) ? null : _sendOtp,
+                  child: Text(
+                    _canResend ? 'Resend OTP' : 'Resend OTP in ${_resendTimer}s',
                     style: TextStyle(
-                      color: AppColors.primary,
+                      color: (_loading || !_canResend) ? AppColors.textSecondary : AppColors.primary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),

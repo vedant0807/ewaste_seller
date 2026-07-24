@@ -18,48 +18,48 @@ class _LandingScreenState extends State<LandingScreen> {
   int _currentPage = 0;
 
   final List<_OnboardingData> _pages = [
+    // _OnboardingData(
+    //   title: 'Turn Old Devices\ninto Cash',
+    //   subtitle:
+    //       'Join 50,000+ users who have sold their e-waste responsibly. Get instant AI pricing for your devices.',
+    //   icon: Icons.recycling_rounded,
+    //   tag: 'Eco-Friendly',
+    //   primaryColor: AppColors.primary,
+    //   cardColor: const Color(0xFFD1FAE5),
+    // ),
+    // _OnboardingData(
+    //   title: 'Smart AI\nPricing Engine',
+    //   subtitle:
+    //       'Our advanced AI analyzes your device photos to determine accurate pricing in seconds — no manual input needed.',
+    //   icon: Icons.auto_awesome_rounded,
+    //   tag: 'AI-Powered',
+    //   primaryColor: const Color(0xFF0F766E), // Teal
+    //   cardColor: const Color(0xFFCCFBF1),
+    // ),
+    // _OnboardingData(
+    //   title: 'Make a Real\nImpact Today',
+    //   subtitle:
+    //       '2.4M kg of e-waste diverted from landfills. Sell your devices and earn verified green certificates.',
+    //   icon: Icons.eco_rounded,
+    //   tag: 'Sustainable',
+    //   primaryColor: const Color(0xFF65A30D),
+    //   cardColor: const Color(0xFFECFCCB),
+    // ),
+    // _OnboardingData(
+    //   title: 'Free Doorstep\nPickup',
+    //   subtitle:
+    //       'Schedule a time that works for you. Our executives will pick up the device and pay you instantly on the spot.',
+    //   icon: Icons.local_shipping_rounded,
+    //   tag: 'Convenient',
+    //   primaryColor: const Color(0xFFF59E0B),
+    //   cardColor: const Color(0xFFFEF3C7),
+    // ),
     _OnboardingData(
       title: 'Turn Old Devices\ninto Cash',
       subtitle:
-          'Join 50,000+ users who have sold their e-waste responsibly. Get instant AI pricing for your devices.',
-      icon: Icons.recycling_rounded,
-      tag: 'Eco-Friendly',
-      primaryColor: AppColors.primary,
-      cardColor: const Color(0xFFD1FAE5),
-    ),
-    _OnboardingData(
-      title: 'Smart AI\nPricing Engine',
-      subtitle:
-          'Our advanced AI analyzes your device photos to determine accurate pricing in seconds — no manual input needed.',
-      icon: Icons.auto_awesome_rounded,
-      tag: 'AI-Powered',
-      primaryColor: const Color(0xFF0F766E), // Teal
-      cardColor: const Color(0xFFCCFBF1),
-    ),
-    _OnboardingData(
-      title: 'Make a Real\nImpact Today',
-      subtitle:
-          '2.4M kg of e-waste diverted from landfills. Sell your devices and earn verified green certificates.',
-      icon: Icons.eco_rounded,
-      tag: 'Sustainable',
-      primaryColor: const Color(0xFF65A30D),
-      cardColor: const Color(0xFFECFCCB),
-    ),
-    _OnboardingData(
-      title: 'Free Doorstep\nPickup',
-      subtitle:
-          'Schedule a time that works for you. Our executives will pick up the device and pay you instantly on the spot.',
-      icon: Icons.local_shipping_rounded,
-      tag: 'Convenient',
-      primaryColor: const Color(0xFFF59E0B),
-      cardColor: const Color(0xFFFEF3C7),
-    ),
-    _OnboardingData(
-      title: 'Complete Lifecycle\nManagement',
-      subtitle:
-          'Watch your e-waste seamlessly transition from collection to recycling, ensuring a greener tomorrow.',
+          'Your e-waste is collected, recycled, and turned into cash.',
       icon: Icons.autorenew_rounded,
-      tag: 'End-to-End',
+      tag: 'E-waste',
       primaryColor: const Color(0xFF0F766E),
       cardColor: const Color(0xFFCCFBF1),
       isAnimation: true,
@@ -193,55 +193,54 @@ class _LandingScreenState extends State<LandingScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Page Indicators
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      _pages.length,
-                      (index) => AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: _currentPage == index ? 28 : 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _currentPage == index
-                              ? AppColors.primary
-                              : AppColors.border,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ),
+                  // Row(
+                  //   mainAxisAlignment: MainAxisAlignment.center,
+                  //   children: List.generate(
+                  //     _pages.length,
+                  //     (index) => AnimatedContainer(
+                  //       duration: const Duration(milliseconds: 300),
+                  //       margin: const EdgeInsets.symmetric(horizontal: 4),
+                  //       width: _currentPage == index ? 28 : 8,
+                  //       height: 8,
+                  //       decoration: BoxDecoration(
+                  //         color: _currentPage == index
+                  //             ? AppColors.primary
+                  //             : AppColors.border,
+                  //         borderRadius: BorderRadius.circular(4),
+                  //       ),
+                  //     ),
+                  //   ),
+                  // ),
                   const SizedBox(height: 32),
 
                   // Action Buttons
                   Row(
                     children: [
                       if (_currentPage == _pages.length - 1)
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: _goToLogin,
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: AppColors.border,
-                                width: 2,
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: const Text(
-                              'Log In',
-                              style: TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 16,
-                                fontWeight:  FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
+                        // Expanded(
+                        //   child: OutlinedButton(
+                        //     onPressed: _goToLogin,
+                        //     style: OutlinedButton.styleFrom(
+                        //       side: const BorderSide(
+                        //         color: AppColors.border,
+                        //         width: 2,
+                        //       ),
+                        //       padding: const EdgeInsets.symmetric(vertical: 16),
+                        //       shape: RoundedRectangleBorder(
+                        //         borderRadius: BorderRadius.circular(16),
+                        //       ),
+                        //     ),
+                        //     child: const Text(
+                        //       'Log In',
+                        //       style: TextStyle(
+                        //         color: AppColors.textPrimary,
+                        //         fontSize: 16,
+                        //         fontWeight:  FontWeight.w700,
+                        //       ),
+                        //     ),
+                        //   ),
+                        // ),
                       if (_currentPage == _pages.length - 1)
-                        const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _nextPage,
@@ -257,7 +256,7 @@ class _LandingScreenState extends State<LandingScreen> {
                           ),
                           child: Text(
                             _currentPage == _pages.length - 1
-                                ? 'Sell E-Waste'
+                                ? 'Lets Get Started'
                                 : 'Next',
                             style: const TextStyle(
                               fontSize: 16,
