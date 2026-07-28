@@ -118,7 +118,7 @@ class _RegistrationBottomSheetState extends State<RegistrationBottomSheet> {
     });
 
     try {
-      // Register User
+      // Register Userl
       final regRes = await ApiService().registerSeller(name, widget.phoneNumber, pincode);
       
       if (regRes.statusCode >= 200 && regRes.statusCode < 300) {

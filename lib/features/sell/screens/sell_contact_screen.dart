@@ -253,6 +253,7 @@ class _SellContactScreenState extends State<SellContactScreen> {
           'estimatedPrice': item.estimatedPrice,
           'deliveryOption': 'service',
           'address': {
+            'contactName': _selectedAddress!['contactName']?.toString() ?? '',
             'firstName': firstName,
             'lastName': lastName,
             'address': _selectedAddress!['addressLine']?.toString() ?? '',
@@ -394,6 +395,18 @@ class _SellContactScreenState extends State<SellContactScreen> {
                             ),
                           ],
                         ),
+                        if ((_selectedAddress!['contactName']?.toString() ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            _selectedAddress!['contactName'].toString(),
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary),
+                          ),
+                          if ((_selectedAddress!['phoneNumber']?.toString() ?? '').isNotEmpty)
+                            Text(
+                              _selectedAddress!['phoneNumber'].toString(),
+                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            ),
+                        ],
                         const SizedBox(height: 8),
                         Text(
                           '${_selectedAddress!['addressLine'] ?? ''}, ${_selectedAddress!['city'] ?? ''}, ${_selectedAddress!['state'] ?? ''} - ${_selectedAddress!['postalCode'] ?? ''}',

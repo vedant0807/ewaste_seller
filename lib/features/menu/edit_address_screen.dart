@@ -16,6 +16,9 @@ class EditAddressScreen extends StatefulWidget {
 
 class _EditAddressScreenState extends State<EditAddressScreen> {
   final _formKey = GlobalKey<FormState>();
+  late TextEditingController _contactNameController;
+  late TextEditingController _phoneNumberController;
+  late TextEditingController _emailController;
   late TextEditingController _addressController;
   late TextEditingController _pincodeController;
   late TextEditingController _cityController;
@@ -33,6 +36,9 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   @override
   void initState() {
     super.initState();
+    _contactNameController = TextEditingController(text: widget.address['contactName']?.toString() ?? '');
+    _phoneNumberController = TextEditingController(text: widget.address['phoneNumber']?.toString() ?? '');
+    _emailController = TextEditingController(text: widget.address['email']?.toString() ?? '');
     _addressController = TextEditingController(text: widget.address['addressLine']?.toString() ?? '');
     _pincodeController = TextEditingController(text: widget.address['postalCode']?.toString() ?? '');
     _cityController = TextEditingController(text: widget.address['city']?.toString() ?? '');
@@ -124,6 +130,9 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
 
   @override
   void dispose() {
+    _contactNameController.dispose();
+    _phoneNumberController.dispose();
+    _emailController.dispose();
     _addressController.dispose();
     _pincodeController.dispose();
     _cityController.dispose();
@@ -152,6 +161,9 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
       await ApiService().editAddress(
         int.parse(addressId.toString()),
         {
+          'contactName': _contactNameController.text.trim(),
+          'phoneNumber': _phoneNumberController.text.trim(),
+          'email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
           'addressLine': _addressController.text.trim(),
           'city': _cityController.text.trim(),
           'state': _stateController.text.trim(),
@@ -208,6 +220,60 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                   minimumSize: const Size(double.infinity, 48),
                 ),
               ),
+              const SizedBox(height: 20),
+
+              // ── Pickup Contact ─────────────────────────────────────
+              _buildLabel('Pickup Contact Name *'),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _contactNameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: _inputDecoration('e.g. Ravi Kumar'),
+                validator: (v) => v!.trim().isEmpty ? 'Required' : null,
+              ),
+
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Phone Number *'),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _phoneNumberController,
+                          keyboardType: TextInputType.phone,
+                          maxLength: 10,
+                          decoration: _inputDecoration('10-digit number').copyWith(counterText: ''),
+                          validator: (v) {
+                            if (v!.trim().isEmpty) return 'Required';
+                            if (!RegExp(r'^\d{10}$').hasMatch(v.trim())) return '10 digits';
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Email (optional)'),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: _inputDecoration('email@example.com'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
               const SizedBox(height: 20),
               _buildLabel('Pickup Address *'),
               const SizedBox(height: 8),

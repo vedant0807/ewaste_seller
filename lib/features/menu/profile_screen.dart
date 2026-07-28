@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:seller_ewaste/core/services/api_service.dart';
 import 'package:seller_ewaste/features/menu/my_addresses_screen.dart';
+import 'package:seller_ewaste/features/menu/edit_address_screen.dart';
 import 'package:seller_ewaste/core/utils/validators.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -946,7 +947,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Row(
                                   children: [
                                     InkWell(
-                                      onTap: () {},
+                                      onTap: () async {
+                                        final res = await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (_) => EditAddressScreen(address: addr)),
+                                        );
+                                        if (res == true && mounted) {
+                                          _fetchProfile(); // Refresh list if changes were made
+                                        }
+                                      },
                                       child: const Row(
                                         children: [
                                           Icon(Icons.edit_outlined, size: 16, color: AppColors.textSecondary),
