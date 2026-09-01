@@ -251,14 +251,22 @@ class _SellItemScreenState extends State<SellItemScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Container(
-                                  width: 48,
-                                  height: 48,
+                                  width: 85,
+                                  height: 85,
                                   decoration: BoxDecoration(
                                     color: AppColors.bgPage,
                                     shape: BoxShape.circle,
                                   ),
                                   child: Center(
-                                    child: Text(cat['emoji'] ?? '📱', style: const TextStyle(fontSize: 24)),
+                                    child: (cat['imageUrl'] != null || (cat['emoji'] != null && cat['emoji'].toString().startsWith('http')))
+                                        ? Image.network(
+                                            cat['imageUrl'] ?? cat['emoji'],
+                                            width: 80,
+                                            height: 80,
+                                            fit: BoxFit.contain,
+                                            errorBuilder: (_, __, ___) => const Text('📱', style: TextStyle(fontSize: 24)),
+                                          )
+                                        : Text(cat['emoji'] ?? '📱', style: const TextStyle(fontSize: 24)),
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -289,7 +297,15 @@ class _SellItemScreenState extends State<SellItemScreen> {
                     ),
                     child: Row(
                       children: [
-                        Text(widget.requestData.selectedCategoryModel?['emoji'] ?? '📱', style: const TextStyle(fontSize: 28)),
+                        (widget.requestData.selectedCategoryModel?['imageUrl'] != null || (widget.requestData.selectedCategoryModel?['emoji'] != null && widget.requestData.selectedCategoryModel!['emoji'].toString().startsWith('http')))
+                            ? Image.network(
+                                widget.requestData.selectedCategoryModel?['imageUrl'] ?? widget.requestData.selectedCategoryModel?['emoji'],
+                                width: 36,
+                                height: 36,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Text('📱', style: TextStyle(fontSize: 28)),
+                              )
+                            : Text(widget.requestData.selectedCategoryModel?['emoji'] ?? '📱', style: const TextStyle(fontSize: 28)),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(

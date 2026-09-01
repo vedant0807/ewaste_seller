@@ -961,7 +961,15 @@ class _SellCheckoutScreenState extends State<SellCheckoutScreen> {
                         children: [
                           Row(
                             children: [
-                              Text(item.selectedCategoryModel?['emoji'] ?? '📱', style: const TextStyle(fontSize: 20)),
+                              (item.selectedCategoryModel?['imageUrl'] != null || (item.selectedCategoryModel?['emoji'] != null && item.selectedCategoryModel!['emoji'].toString().startsWith('http')))
+                                  ? Image.network(
+                                      item.selectedCategoryModel?['imageUrl'] ?? item.selectedCategoryModel?['emoji'],
+                                      width: 24,
+                                      height: 24,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => const Text('📱', style: TextStyle(fontSize: 20)),
+                                    )
+                                  : Text(item.selectedCategoryModel?['emoji'] ?? '📱', style: const TextStyle(fontSize: 20)),
                               const SizedBox(width: 12),
                               Text(categoryName, style: const TextStyle(fontWeight: FontWeight.bold)),
                             ],

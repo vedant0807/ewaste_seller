@@ -140,6 +140,7 @@ class SellRequestModel {
   String pincode = '';
   DateTime? pickupDate;
   String? timeSlot;
+  Map<String, dynamic>? selectedAddressModel;
 
   // Clear data (useful if we want to reset the form)
   void clear() {
@@ -164,5 +165,6 @@ class SellRequestModel {
     pincode = '';
     pickupDate = null;
     timeSlot = null;
+    selectedAddressModel = null;
   }
 }

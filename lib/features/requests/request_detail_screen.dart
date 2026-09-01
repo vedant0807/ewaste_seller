@@ -76,6 +76,60 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
     }
   }
 
+  Future<void> _handleCancelRequest() async {
+    setState(() => _isSubmitting = true);
+    try {
+      final reqId = _data['id']?.toString() ?? '';
+      await ApiService().updateSellRequest(reqId, {
+        'status': 'Rejected',
+        'rejectionReason': 'Cancelled by seller'
+      });
+      
+      if (mounted) {
+        setState(() {
+          _data['status'] = 'CANCELLED';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request cancelled successfully')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to cancel request: $e')));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _handleReschedulePickup() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 1)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 30)),
+    );
+
+    if (picked != null) {
+      setState(() => _isSubmitting = true);
+      try {
+        final reqId = _data['id']?.toString() ?? '';
+        final dateStr = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+        
+        await ApiService().updateSellRequest(reqId, {
+          'notes': 'User requested pickup reschedule to: $dateStr'
+        });
+        
+        if (mounted) {
+          setState(() {
+             _data['notes'] = 'User requested pickup reschedule to: $dateStr';
+          });
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reschedule request sent successfully')));
+        }
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to reschedule: $e')));
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
   void _showImagePreview(String imageUrl) {
     showDialog(
       context: context,
@@ -502,6 +556,63 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
                       ],
                     ),
                   ),
+
+                  if (status != 'REJECTED' && status != 'CANCELLED' && step < 4) ...[
+                    const SizedBox(height: 24),
+                    _isSubmitting
+                        ? const Center(child: CircularProgressIndicator())
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Cancel Request'),
+                                        content: const Text('Are you sure you want to cancel this request?'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(ctx),
+                                            child: const Text('No'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              Navigator.pop(ctx);
+                                              _handleCancelRequest();
+                                            },
+                                            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.red)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: Colors.red),
+                                    foregroundColor: Colors.red,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  child: const Text('Cancel Request'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: _handleReschedulePickup,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  child: const Text('Reschedule'),
+                                ),
+                              ),
+                            ],
+                          ),
+                  ],
                   
                   const SizedBox(height: 32),
                 ],

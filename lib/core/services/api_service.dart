@@ -174,6 +174,27 @@ class ApiService {
     return response;
   }
 
+  /// Fetches banners by position
+  Future<http.Response> getBanners(String position) async {
+    final url = Uri.parse('$baseUrl/api/banners?position=$position');
+    
+    debugPrint('--- BANNERS REQUEST ---');
+    debugPrint('GET: $url');
+    
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-source-ewaste': 'mobile'
+      },
+    ).timeout(const Duration(seconds: 10));
+
+    debugPrint('--- BANNERS RESPONSE ---');
+    debugPrint('Status Code: ${response.statusCode}');
+
+    return response;
+  }
+
   /// Fetches the user's sell requests
   Future<http.Response> getMyRequests() async {
     final url = Uri.parse('$baseUrl/api/seller/my-requests');

@@ -8,7 +8,10 @@ import 'package:seller_ewaste/features/menu/my_addresses_screen.dart';
 import 'package:seller_ewaste/features/menu/wallet_screen.dart';
 import 'package:seller_ewaste/features/menu/donate_ewaste_screen.dart';
 import 'package:seller_ewaste/features/menu/corporate_inquiry_screen.dart';
+import 'dart:convert';
 import 'package:seller_ewaste/core/services/session_manager.dart';
+import 'package:seller_ewaste/core/services/api_service.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 
 class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
@@ -20,11 +23,36 @@ class MenuScreen extends StatefulWidget {
 class _MenuScreenState extends State<MenuScreen> {
   String _name = 'User Name';
   String _phone = 'Phone Number';
+  List<dynamic> _banners = [];
+  bool _isLoadingBanners = true;
 
   @override
   void initState() {
     super.initState();
     _loadUser();
+    _loadBanners();
+  }
+
+  Future<void> _loadBanners() async {
+    try {
+      final response = await ApiService().getBanners('left_sidebar');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          if (mounted) {
+            setState(() {
+              _banners = data.where((b) => b['isActive'] == true).toList();
+              _banners.sort((a, b) => (a['displayOrder'] ?? 0).compareTo(b['displayOrder'] ?? 0));
+              _isLoadingBanners = false;
+            });
+          }
+        }
+      } else {
+        if (mounted) setState(() => _isLoadingBanners = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingBanners = false);
+    }
   }
 
   Future<void> _loadUser() async {
@@ -144,33 +172,71 @@ class _MenuScreenState extends State<MenuScreen> {
               const SizedBox(height: 24),
               const Divider(height: 1),
               ...items.map(
-                (i) => ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xl,
-                    vertical: 4,
-                  ),
-                  leading: Icon(
-                    i.$1,
-                    color: i.$1 == Icons.logout_rounded
-                        ? Colors.red
-                        : AppColors.primary,
-                    size: 24,
-                  ),
-                  title: Text(
-                    i.$2,
-                    style: AppTextStyles.bodyLarge.copyWith(
-                      color: i.$1 == Icons.logout_rounded ? Colors.red : null,
-                      fontWeight: FontWeight.w500,
+                (i) => Column(
+                  children: [
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xl,
+                        vertical: 4,
+                      ),
+                      leading: Icon(
+                        i.$1,
+                        color: i.$1 == Icons.logout_rounded
+                            ? Colors.red
+                            : AppColors.primary,
+                        size: 24,
+                      ),
+                      title: Text(
+                        i.$2,
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          color: i.$1 == Icons.logout_rounded ? Colors.red : null,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      trailing: i.$1 != Icons.logout_rounded
+                          ? const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppColors.textMuted,
+                              size: 20,
+                            )
+                          : null,
+                      onTap: i.$3 as void Function()?,
                     ),
-                  ),
-                  trailing: i.$1 != Icons.logout_rounded
-                      ? const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.textMuted,
-                          size: 20,
-                        )
-                      : null,
-                  onTap: i.$3 as void Function()?,
+                    if (i.$2 == 'My Certificates' && !_isLoadingBanners && _banners.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16.0),
+                        child: CarouselSlider(
+                          options: CarouselOptions(
+                            height: 120.0,
+                            autoPlay: true,
+                            enlargeCenterPage: true,
+                            viewportFraction: 0.85,
+                          ),
+                          items: _banners.map((banner) {
+                            return Builder(
+                              builder: (BuildContext context) {
+                                return Container(
+                                  width: MediaQuery.of(context).size.width,
+                                  margin: const EdgeInsets.symmetric(horizontal: 5.0),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    color: Colors.grey[200],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(
+                                      banner['image'] ?? '',
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const Divider(height: 1),
