@@ -140,11 +140,7 @@ class _MenuScreenState extends State<MenuScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          _name,
-                          style: AppTextStyles.headingMedium,
-                        ),
-                        Text(_phone, style: AppTextStyles.bodySmall),
+                        Image.asset('assets/seller-logo.png', height: 40),
                       ],
                     ),
                     const Spacer(),

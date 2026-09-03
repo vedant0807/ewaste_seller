@@ -71,20 +71,23 @@ class _SplashScreenState extends State<SplashScreen>
               ScaleTransition(
                 scale: _scaleAnim,
                 child: Container(
-                  width: 100,
-                  height: 100,
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.recycling_rounded,
                     color: Colors.white,
-                    size: 52,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Image.asset(
+                    'assets/seller-logo.png',
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
@@ -94,7 +97,7 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Column(
                   children: [
                     const Text(
-                      'ReCircle Sell',
+                      'Seller Portal',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 30,

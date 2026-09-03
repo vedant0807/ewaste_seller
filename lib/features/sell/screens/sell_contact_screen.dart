@@ -296,312 +296,218 @@ class _SellContactScreenState extends State<SellContactScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bgPage,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        elevation: 0,
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text('Contact Details', style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
-      ),
-      body: Column(
+  Widget _buildStepper() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(20),
+          Positioned(
+            top: 14,
+            left: 30,
+            right: 30,
+            child: Row(
               children: [
-                const Text('Pickup Address', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const Text('Choose an address and a time slot for pickup', style: TextStyle(fontSize: 12,)),
+                Expanded(child: Container(height: 2, color: AppColors.primary)),
+                Expanded(child: Container(height: 2, color: AppColors.primary)),
+              ],
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildStepIndicator('Choose Products', 'Select what you\nwant to sell', true),
+              _buildStepIndicator('Get Paid', 'Add details &\nchoose payment', true),
+              _buildStepIndicator('Book Pickup', 'Schedule doorstep\npickup', true, isCurrent: true, stepNumber: '3'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-                const SizedBox(height: 16),
-                // _buildTextField('Full Name', _fullNameController, isRequired: true),
-                // const SizedBox(height: 12),
-                // Row(
-                //   crossAxisAlignment: CrossAxisAlignment.start,
-                //   children: [
-                //     Expanded(child: _buildTextField('Mobile', _mobileController, isPhone: true, maxLength: 13, isRequired: true, readOnly: true, errorText: (_mobileController.text.isNotEmpty && !RegExp(r'^\d{10,13}$').hasMatch(_mobileController.text)) ? '10-13 digits' : null)),
-                //     const SizedBox(width: 12),
-                //     Expanded(child: _buildTextField('Alternate Contact', _altContactController, isPhone: true, maxLength: 13, errorText: (_altContactController.text.isNotEmpty && !RegExp(r'^\d{10,13}$').hasMatch(_altContactController.text)) ? '10-13 digits' : null)),
-                //   ],
-                // ),
-                // const SizedBox(height: 12),
-                // _buildTextField('Email', _emailController, isRequired: true),
-                // const SizedBox(height: 24),
-                
-                const Text('Selected Address', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                const SizedBox(height: 8),
-                if (_isLoadingAddress)
-                  const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                else if (_selectedAddress == null)
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddAddressScreen()));
-                        if (res == true && mounted) _loadAddress();
-                      },
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add New Address', style: TextStyle(fontWeight: FontWeight.bold)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary, width: 1.5),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              (_selectedAddress!['addressType'] ?? 'HOME').toString().toUpperCase(),
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.textPrimary),
-                            ),
-                            Row(
-                              children: [
-                                GestureDetector(
-                                  onTap: () async {
-                                    final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => EditAddressScreen(address: _selectedAddress!)));
-                                    if (res == true && mounted) _loadAddress();
-                                  },
-                                  child: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
-                                ),
-                                const SizedBox(width: 16),
-                                GestureDetector(
-                                  onTap: () async {
-                                    final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const MyAddressesScreen(isSelectionMode: true)));
-                                    if (res != null && mounted) {
-                                      setState(() => _selectedAddress = res as Map<String, dynamic>);
-                                      _checkPincode();
-                                    }
-                                  },
-                                  child: const Text('Change', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        if ((_selectedAddress!['contactName']?.toString() ?? '').isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            _selectedAddress!['contactName'].toString(),
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.textPrimary),
-                          ),
-                          if ((_selectedAddress!['phoneNumber']?.toString() ?? '').isNotEmpty)
-                            Text(
-                              _selectedAddress!['phoneNumber'].toString(),
-                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                            ),
-                        ],
-                        const SizedBox(height: 8),
-                        Text(
-                          '${_selectedAddress!['addressLine'] ?? ''}, ${_selectedAddress!['city'] ?? ''}, ${_selectedAddress!['state'] ?? ''} - ${_selectedAddress!['postalCode'] ?? ''}',
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, height: 1.4),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (_isCheckingPincode) ...[
-                  const SizedBox(height: 8),
-                  const Row(
-                    children: [
-                      SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
-                      SizedBox(width: 8),
-                      Text('Checking service availability...', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                    ],
-                  ),
-                ] else if (_isPincodeServiceable == true) ...[
-                  const SizedBox(height: 8),
-                  const Row(
-                    children: [
-                      Icon(Icons.check_circle_rounded, color: Colors.green, size: 14),
-                      SizedBox(width: 4),
-                      Text('Service available', style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ] else if (_isPincodeServiceable == false) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.cancel_rounded, color: Colors.red, size: 14),
-                      const SizedBox(width: 4),
-                      Expanded(child: Text(_pincodeErrorMsg, style: const TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold))),
-                    ],
-                  ),
-                ],
-                
-                const SizedBox(height: 32),
-                
-                const Text('Pickup Schedule', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                
-                Row(
+  Widget _buildStepIndicator(String title, String subtitle, bool isCompleted, {bool isCurrent = false, String stepNumber = ''}) {
+    return Expanded(
+      child: Column(
+        children: [
+          Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(
+              color: isCompleted ? AppColors.primary : Colors.white,
+              shape: BoxShape.circle,
+              border: isCompleted ? null : Border.all(color: Colors.grey.shade300, width: 2),
+            ),
+            child: Center(
+              child: isCompleted && !isCurrent
+                  ? const Icon(Icons.check, color: Colors.white, size: 18)
+                  : Text(stepNumber, style: TextStyle(color: isCurrent ? Colors.white : Colors.grey, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(title, style: TextStyle(color: isCompleted ? AppColors.primary : Colors.grey, fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+          const SizedBox(height: 4),
+          Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 9), textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard() {
+    final item = widget.requestData.items.isNotEmpty ? widget.requestData.items.first : null;
+    final categoryName = item?.selectedCategoryModel?['name'] ?? 'Unknown';
+    final priceRange = item?.estimatedPriceRange ?? '';
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.calendar_month_outlined, size: 16, color: Colors.blueGrey),
+              SizedBox(width: 8),
+              Text('Your Pickup Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.ac_unit, size: 24), // Placeholder for product icon
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text.rich(
-                            TextSpan(
-                              text: 'Date',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                              children: [
-                                TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: DateTime.now().add(const Duration(days: 1)),
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(const Duration(days: 14)),
-                              );
-                              if (picked != null) setState(() => widget.requestData.pickupDate = picked);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primary),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      widget.requestData.pickupDate != null
-                                        ? '${widget.requestData.pickupDate!.day}/${widget.requestData.pickupDate!.month}/${widget.requestData.pickupDate!.year}'
-                                        : 'Select Date',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: widget.requestData.pickupDate != null ? AppColors.textPrimary : AppColors.textSecondary,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text.rich(
-                            TextSpan(
-                              text: 'Time',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                              children: [
-                                TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          DropdownMenu<String>(
-                        initialSelection: widget.requestData.timeSlot,
-                        expandedInsets: EdgeInsets.zero,
-                        hintText: 'Time Slot',
-                        textStyle: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                        onSelected: (v) {
-                          if (v != null) setState(() => widget.requestData.timeSlot = v);
-                        },
-                        dropdownMenuEntries: ['9:00 AM - 11:00 AM', '11:00 AM - 1:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM']
-                            .map((opt) => DropdownMenuEntry(
-                                  value: opt,
-                                  label: opt,
-                                  style: MenuItemButton.styleFrom(
-                                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                  ),
-                                ))
-                            .toList(),
-                        inputDecorationTheme: InputDecorationTheme(
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.transparent)),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-                        ),
-                        trailingIcon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
-                        selectedTrailingIcon: const Icon(Icons.keyboard_arrow_up_rounded, color: AppColors.primary),
-                        menuStyle: MenuStyle(
-                          backgroundColor: const WidgetStatePropertyAll(Colors.white),
-                          elevation: const WidgetStatePropertyAll(8),
-                          shape: WidgetStatePropertyAll(
-                            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    Text(categoryName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const Text('1 Item', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
                 ),
-              ],
-            ),
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: CheckboxListTile(
-              value: _termsAccepted,
-              onChanged: (v) => setState(() => _termsAccepted = v ?? false),
-              title: const Text('I agree to the terms and final physical inspection.', style: TextStyle(fontSize: 13)),
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              activeColor: AppColors.primary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -4))],
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: SizedBox(
-              height: 52,
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _submitRequestWithValidation,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  disabledBackgroundColor: AppColors.bgMuted,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 0,
-                ),
-                child: const Text('Confirm Request', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
+              Text(priceRange, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.payment, size: 14, color: Colors.blue),
+                        SizedBox(width: 4),
+                        Text('Payment Method', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(widget.requestData.paymentMethod.toUpperCase(), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_outlined, size: 14, color: Colors.red),
+                        const SizedBox(width: 4),
+                        const Text('Pickup Address', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        if (_selectedAddress != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(4)),
+                            child: Text((_selectedAddress!['addressType'] ?? 'HOME').toString().toUpperCase(), style: const TextStyle(fontSize: 8, color: Colors.green, fontWeight: FontWeight.bold)),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _selectedAddress != null ? '${_selectedAddress!['addressLine'] ?? ''}, ${_selectedAddress!['city'] ?? ''}' : 'Not Selected',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.calendar_today_outlined, size: 14, color: Colors.blueAccent),
+                        SizedBox(width: 4),
+                        Text('Pickup Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.requestData.pickupDate != null ? '${widget.requestData.pickupDate!.day} Sept ${widget.requestData.pickupDate!.year}' : 'Not Selected',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.access_time, size: 14, color: Colors.orange),
+                        SizedBox(width: 4),
+                        Text('Pickup Time', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.requestData.timeSlot ?? 'Not Selected',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 40,
+            child: ElevatedButton(
+              onPressed: _submitRequestWithValidation,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 0,
+              ),
+              child: const Text('Confirm My Request', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             ),
           ),
         ],
@@ -609,43 +515,449 @@ class _SellContactScreenState extends State<SellContactScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {bool isPhone = false, bool isRequired = false, String? errorText, int? maxLength, bool obscureText = false, bool readOnly = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text.rich(
-          TextSpan(
-            text: label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+  Widget _buildAddressStep() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              if (isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              Container(
+                width: 24, height: 24,
+                decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                child: const Center(child: Text('1', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+              ),
+              const SizedBox(width: 8),
+              const Text('Choose pickup address', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              OutlinedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.my_location, size: 14, color: AppColors.primary),
+                label: const Text('Fetch Live Location', style: TextStyle(fontSize: 10, color: AppColors.primary)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: AppColors.primary.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 28),
+                ),
+              ),
             ],
           ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: isPhone ? TextInputType.number : TextInputType.text,
-          maxLength: maxLength,
-          obscureText: obscureText,
-          readOnly: readOnly,
-          onChanged: (v) => setState((){}),
-          style: const TextStyle(fontSize: 14),
-          decoration: InputDecoration(
-            hintText: 'Enter $label',
-            hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-            filled: true,
-            fillColor: Colors.white,
-            errorText: errorText,
-            counterText: '',
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          const SizedBox(height: 12),
+          if (_isLoadingAddress)
+            const Center(child: CircularProgressIndicator(strokeWidth: 2))
+          else if (_selectedAddress == null)
+            GestureDetector(
+              onTap: () async {
+                final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddAddressScreen()));
+                if (res == true && mounted) _loadAddress();
+              },
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), style: BorderStyle.none),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
+                      child: const Icon(Icons.add, color: AppColors.primary),
+                    ),
+                    const SizedBox(width: 16),
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Add New Address', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        SizedBox(height: 4),
+                        Text('Save more addresses for\nfaster checkout', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        (_selectedAddress!['addressType'] ?? 'HOME').toString().toUpperCase(),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.textPrimary),
+                      ),
+                      GestureDetector(
+                        onTap: () async {
+                          final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const MyAddressesScreen(isSelectionMode: true)));
+                          if (res != null && mounted) {
+                            setState(() => _selectedAddress = res as Map<String, dynamic>);
+                            _checkPincode();
+                          }
+                        },
+                        child: const Text('Change', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${_selectedAddress!['addressLine'] ?? ''}, ${_selectedAddress!['city'] ?? ''}, ${_selectedAddress!['state'] ?? ''} - ${_selectedAddress!['postalCode'] ?? ''}',
+                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateTimeStep() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 24, height: 24,
+                decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                child: const Center(child: Text('2', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+              ),
+              const SizedBox(width: 8),
+              const Text('Choose preferred date & time', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            ],
           ),
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: CalendarDatePicker(
+              initialDate: widget.requestData.pickupDate ?? DateTime.now().add(const Duration(days: 1)),
+              firstDate: DateTime.now(),
+              lastDate: DateTime.now().add(const Duration(days: 14)),
+              onDateChanged: (d) => setState(() => widget.requestData.pickupDate = d),
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (widget.requestData.pickupDate != null)
+            Text('Available time slots for ${widget.requestData.pickupDate!.day} Sept ${widget.requestData.pickupDate!.year}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          const SizedBox(height: 8),
+          GridView.count(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 2.5,
+            children: ['9:00 AM - 11:00 AM', '11:00 AM - 1:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM'].map((time) {
+              final isSelected = widget.requestData.timeSlot == time;
+              return GestureDetector(
+                onTap: () => setState(() => widget.requestData.timeSlot = time),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: isSelected ? AppColors.primary : Colors.grey.shade300, width: isSelected ? 1.5 : 1),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(time, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isSelected ? AppColors.primary : Colors.black87)),
+                          const SizedBox(height: 4),
+                          Text(isSelected ? 'Selected' : 'Available', style: TextStyle(fontSize: 9, color: isSelected ? AppColors.primary : Colors.green)),
+                        ],
+                      ),
+                      if (isSelected)
+                        const Positioned(
+                          top: 4, right: 4,
+                          child: Icon(Icons.check_circle, color: AppColors.primary, size: 14),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImportantInfoCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Important to know', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text('🏋️', style: TextStyle(fontSize: 14)),
+              SizedBox(width: 8),
+              Expanded(child: Text.rich(TextSpan(children: [
+                TextSpan(text: 'Lift unavailable? ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87)),
+                TextSpan(text: 'Labour charges may apply.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ]))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text('📦', style: TextStyle(fontSize: 14)),
+              SizedBox(width: 8),
+              Expanded(child: Text.rich(TextSpan(children: [
+                TextSpan(text: 'More than 10 items? ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87)),
+                TextSpan(text: 'Extra handling charges may apply.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ]))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text('🔍', style: TextStyle(fontSize: 14)),
+              SizedBox(width: 8),
+              Expanded(child: Text('Final price depends on inspection at pickup.', style: TextStyle(fontSize: 11, color: Colors.grey))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.black),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
         ),
-      ],
+        centerTitle: true,
+        title: Image.asset('assets/seller-logo.png', height: 36),
+        actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_none, color: Colors.black, size: 28),
+                onPressed: () {},
+              ),
+              Positioned(
+                right: 8,
+                top: 12,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  child: const Text('3', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center,),
+                ),
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.only(right: 16.0, left: 8.0),
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: AppColors.primary,
+              child: Text('JD', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: 40),
+              children: [
+                _buildStepper(),
+                
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('Schedule pickup & ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                          const Text('select address.', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primary)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text('Choose your convenient pickup address and time slot for doorstep verification', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+                _buildSummaryCard(),
+                
+                const SizedBox(height: 32),
+                _buildAddressStep(),
+                
+                if (_isCheckingPincode) ...[
+                  const SizedBox(height: 8),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Row(
+                      children: [
+                        SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+                        SizedBox(width: 8),
+                        Text('Checking service availability...', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      ],
+                    ),
+                  ),
+                ] else if (_isPincodeServiceable == true) ...[
+                  const SizedBox(height: 8),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle_rounded, color: Colors.green, size: 14),
+                        SizedBox(width: 4),
+                        Text('Service available', style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ] else if (_isPincodeServiceable == false) ...[
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cancel_rounded, color: Colors.red, size: 14),
+                        const SizedBox(width: 4),
+                        Expanded(child: Text(_pincodeErrorMsg, style: const TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold))),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 32),
+                _buildDateTimeStep(),
+                
+                const SizedBox(height: 32),
+                _buildImportantInfoCard(),
+                
+                const SizedBox(height: 16),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 24, height: 24,
+                        child: Checkbox(
+                          value: _termsAccepted,
+                          onChanged: (v) => setState(() => _termsAccepted = v ?? false),
+                          activeColor: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text.rich(TextSpan(children: [
+                              TextSpan(text: 'I agree to the terms & conditions ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
+                              TextSpan(text: '*', style: TextStyle(color: Colors.red)),
+                            ])),
+                            const SizedBox(height: 4),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text('• ', style: TextStyle(color: Colors.black87, fontSize: 11, fontWeight: FontWeight.bold)),
+                                Expanded(child: Text('Lift unavailable: labour charges may apply.', style: TextStyle(fontSize: 11, color: Colors.grey))),
+                              ],
+                            ),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text('• ', style: TextStyle(color: Colors.black87, fontSize: 11, fontWeight: FontWeight.bold)),
+                                Expanded(child: Text('Items above 10 kg may incur extra charges.', style: TextStyle(fontSize: 11, color: Colors.grey))),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Sticky Bottom Button
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5)),
+              ],
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: _submitRequestWithValidation,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Text('Confirm My Request', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
+
 
 class _SuccessDialog extends StatelessWidget {
   const _SuccessDialog();

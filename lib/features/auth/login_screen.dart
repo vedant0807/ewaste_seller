@@ -237,16 +237,22 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 40),
               // Logo
               Container(
-                width: 64,
-                height: 64,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.recycling_rounded,
                   color: Colors.white,
-                  size: 36,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Image.asset(
+                  'assets/seller-logo.png',
+                  height: 48,
+                  fit: BoxFit.contain,
                 ),
               ),
               const SizedBox(height: 24),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:seller_ewaste/core/theme/app_theme.dart';
 import 'package:seller_ewaste/core/services/api_service.dart';
 import 'package:seller_ewaste/features/menu/add_address_screen.dart';
@@ -68,9 +69,7 @@ class _MyAddressesScreenState extends State<MyAddressesScreen> {
     try {
       await ApiService().deleteAddress(id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Address deleted successfully')),
-        );
+        Fluttertoast.showToast(msg: 'Address deleted successfully');
       }
       _fetchAddresses();
     } catch (e) {
