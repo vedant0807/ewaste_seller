@@ -23,10 +23,27 @@ class _MainScreenState extends State<MainScreen> {
     _currentIndex = widget.initialIndex;
   }
 
+  void _onNavigateTab(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  void _onOpenSellFlow() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SellFlowEntryPoint()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screens = [
-      const SellFlowEntryPoint(),
+      DashboardScreen(
+        onNavigateToRequests: () => _onNavigateTab(1),
+        onNavigateToWallet: () => _onNavigateTab(2),
+        onNavigateToSell: _onOpenSellFlow,
+      ),
       const RequestsScreen(),
       WalletScreen(isActive: _currentIndex == 2),
       const ProfileScreen(),
@@ -39,7 +56,8 @@ class _MainScreenState extends State<MainScreen> {
       ),
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        onTap: _onNavigateTab,
+        onSellTap: _onOpenSellFlow,
       ),
     );
   }

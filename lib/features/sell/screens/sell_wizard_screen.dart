@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:seller_ewaste/core/theme/app_theme.dart';
+import 'package:seller_ewaste/core/widgets/bottom_nav_bar.dart';
+import 'package:seller_ewaste/features/main/main_screen.dart';
 import 'package:seller_ewaste/features/sell/models/sell_request_model.dart';
 import 'package:seller_ewaste/features/sell/widgets/step_choose_products.dart';
 import 'package:seller_ewaste/features/sell/widgets/step_get_paid.dart';
 import 'package:seller_ewaste/features/sell/widgets/step_book_pickup.dart';
 import 'package:seller_ewaste/features/sell/widgets/sell_summary_sidebar.dart';
-import 'package:seller_ewaste/features/menu/menu_screen.dart';
 
 class SellWizardScreen extends StatefulWidget {
   final SellRequestModel requestData;
@@ -20,8 +20,9 @@ class SellWizardScreen extends StatefulWidget {
 class _SellWizardScreenState extends State<SellWizardScreen> {
   int _currentStep = 0;
   bool _termsAccepted = false;
-  
+
   final GlobalKey<StepBookPickupState> _bookPickupKey = GlobalKey<StepBookPickupState>();
+  final GlobalKey<StepGetPaidState> _getPaidKey = GlobalKey<StepGetPaidState>();
 
   void _showToast(String message) {
     FToast fToast = FToast();
@@ -38,7 +39,16 @@ class _SellWizardScreenState extends State<SellWizardScreen> {
         children: [
           const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
           const SizedBox(width: 10),
-          Flexible(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
+          Flexible(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -48,28 +58,35 @@ class _SellWizardScreenState extends State<SellWizardScreen> {
   void _nextStep() async {
     if (_currentStep == 0) {
       if (widget.requestData.items.isEmpty) {
-        _showToast('Please add at least one item');
-        return;
+        if (widget.requestData.currentItem.isComplete) {
+          widget.requestData.addCurrentItem();
+        } else {
+          if (widget.requestData.currentItem.selectedCategoryModel == null) {
+            _showToast('Please select a product category first');
+          } else if (widget.requestData.currentItem.localImagePaths.isEmpty &&
+              widget.requestData.currentItem.uploadedImageUrls.isEmpty) {
+            _showToast('Please upload at least 1 photo of your item');
+          } else {
+            _showToast('Please fill all required item details');
+          }
+          return;
+        }
+      } else {
+        // If user filled in another item and it's complete, save it too
+        if (widget.requestData.currentItem.isComplete) {
+          widget.requestData.addCurrentItem();
+        }
       }
-      setState(() => _currentStep++);
+      setState(() => _currentStep = 1);
     } else if (_currentStep == 1) {
-      if (widget.requestData.paymentMethod == 'upi' && widget.requestData.upiId.isEmpty) {
-        _showToast('Please select a UPI ID');
+      if (_getPaidKey.currentState?.validate() == false) {
         return;
       }
-      if (widget.requestData.paymentMethod == 'bank' && widget.requestData.accountNumber.isEmpty) {
-        _showToast('Please select a Bank Account');
-        return;
-      }
-      if (widget.requestData.hasGst && widget.requestData.gstNumber.isEmpty) {
-        _showToast('Please select a GST number');
-        return;
-      }
-      setState(() => _currentStep++);
+      setState(() => _currentStep = 2);
     } else if (_currentStep == 2) {
       final success = await _bookPickupKey.currentState?.validateAndSubmit(_termsAccepted);
       if (success == true) {
-        // Success dialog is shown by step_book_pickup, and then it navigates away.
+        // Success dialog and navigation handled by step_book_pickup
       }
     }
   }
@@ -78,196 +95,281 @@ class _SellWizardScreenState extends State<SellWizardScreen> {
     if (_currentStep > 0) {
       setState(() => _currentStep--);
     } else {
-      Navigator.pop(context);
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const MainScreen(initialIndex: 0)),
+          (r) => false,
+        );
+      }
     }
   }
 
   void _onUpdate() {
-    setState(() {});
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  Widget _buildActiveStep() {
+    final summaryWidget = SellSummarySidebar(
+      requestData: widget.requestData,
+      currentStep: _currentStep,
+      totalSteps: 3,
+      onNext: _nextStep,
+      onBack: _previousStep,
+      onEditCart: () => setState(() => _currentStep = 0),
+      isMobile: true,
+      termsAccepted: _termsAccepted,
+      onTermsChanged: (v) {
+        setState(() {
+          _termsAccepted = v ?? false;
+        });
+      },
+    );
+
+    switch (_currentStep) {
+      case 0:
+        return StepChooseProducts(
+          requestData: widget.requestData,
+          onUpdate: _onUpdate,
+          bottomAction: summaryWidget,
+        );
+      case 1:
+        return StepGetPaid(
+          key: _getPaidKey,
+          requestData: widget.requestData,
+          onUpdate: _onUpdate,
+          bottomAction: summaryWidget,
+        );
+      case 2:
+        return StepBookPickup(
+          key: _bookPickupKey,
+          requestData: widget.requestData,
+          onUpdate: _onUpdate,
+          bottomAction: summaryWidget,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Check if the screen is wide enough for a side-by-side layout (Desktop/Web)
-    final isWide = MediaQuery.of(context).size.width > 900;
-
-    return WillPopScope(
-      onWillPop: () async {
-        if (_currentStep > 0) {
+    return PopScope(
+      canPop: _currentStep == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _currentStep > 0) {
           _previousStep();
-          return false;
         }
-        return true;
       },
       child: Scaffold(
-        backgroundColor: AppColors.bgPage,
-        appBar: AppBar(
-          backgroundColor: AppColors.primary,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: Text('Sell E-Waste', style: AppTextStyles.headingMedium.copyWith(color: Colors.white)),
-          centerTitle: true,
-        ),
-        drawer: isWide ? null : const MenuScreen(),
-        body: Column(
-          children: [
-            // Header: Custom Stepper
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-              color: Colors.white,
-              child: _buildStepper(isWide),
-            ),
-            const Divider(height: 1),
+        backgroundColor: const Color(0xFFF4F7F5),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // Top Header with notification bell
+              _buildTopHeader(context),
 
-            // Main Content Area
-            Expanded(
-              child: isWide
-                  ? Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Left Main Pane
-                        Expanded(
-                          flex: 2,
-                          child: _buildActiveStep(),
-                        ),
-                        const VerticalDivider(width: 1),
-                        // Right Sidebar
-                        SizedBox(
-                          width: 350,
-                          child: SingleChildScrollView(
-                            child: SellSummarySidebar(
-                              requestData: widget.requestData,
-                              currentStep: _currentStep,
-                              totalSteps: 3,
-                              onNext: _nextStep,
-                              onBack: _previousStep,
-                              isMobile: false,
-                              termsAccepted: _termsAccepted,
-                              onTermsChanged: (v) {
-                                setState(() {
-                                  _termsAccepted = v ?? false;
-                                });
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Stack(
-                      children: [
-                        Column(
-                          children: [
-                            Expanded(child: _buildActiveStep()),
-                            // Push the body up to leave room for the bottom sticky sidebar
-                            const SizedBox(height: 250), 
-                          ],
-                        ),
-                        // Mobile bottom sticky summary
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: SellSummarySidebar(
-                            requestData: widget.requestData,
-                            currentStep: _currentStep,
-                            totalSteps: 3,
-                            onNext: _nextStep,
-                            onBack: _previousStep,
-                            isMobile: true,
-                            termsAccepted: _termsAccepted,
-                            onTermsChanged: (v) {
-                              setState(() {
-                                _termsAccepted = v ?? false;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
+              // Custom Stepper Pill
+              _buildStepper(),
+
+              // Step Content with payout summary cleanly below in scroll view (no overlapping)
+              Expanded(
+                child: _buildActiveStep(),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: AppBottomNavBar(
+          currentIndex: 0, // Sell action center is highlighted or maps back cleanly
+          onTap: (index) {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => MainScreen(initialIndex: index)),
+              (r) => false,
+            );
+          },
+          onSellTap: () {
+            // Already in sell wizard
+          },
         ),
       ),
     );
   }
 
-  Widget _buildStepper(bool isWide) {
-    if (!isWide) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildStepIndicator(0, ''),
-          _buildStepLine(0),
-          _buildStepIndicator(1, ''),
-          _buildStepLine(1),
-          _buildStepIndicator(2, ''),
-        ],
-      );
+  /// Screen Header matching screenshots
+  Widget _buildTopHeader(BuildContext context) {
+    String title = 'Sell items';
+    String subtitle = 'Get the best value for your e-waste';
+    if (_currentStep == 1) {
+      title = 'How do you want to get paid?';
+      subtitle = 'Step 2 of 3 • Payout method';
+    } else if (_currentStep == 2) {
+      title = 'Book your pickup';
+      subtitle = 'Step 3 of 3 • Pickup schedule';
     }
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildStepIndicator(0, 'Choose Products'),
-        _buildStepLine(0),
-        _buildStepIndicator(1, 'Get Paid'),
-        _buildStepLine(1),
-        _buildStepIndicator(2, 'Book Pickup'),
-      ],
+
+    return Padding(
+      padding: const EdgeInsets.only(
+        top: 12,
+        left: 16,
+        right: 16,
+        bottom: 8,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              if (_currentStep > 0 || Navigator.canPop(context)) ...[
+                GestureDetector(
+                  onTap: _previousStep,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    child: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 20,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: _currentStep == 1 ? 21 : 24,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Notification Bell Icon with Red Dot
+          Container(
+            width: 42,
+            height: 42,
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8F8EE),
+              shape: BoxShape.circle,
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                const Icon(
+                  Icons.notifications_none_rounded,
+                  color: Color(0xFF0F172A),
+                  size: 22,
+                ),
+                Positioned(
+                  top: 9,
+                  right: 11,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildStepIndicator(int stepIndex, String title) {
-    bool isActive = _currentStep == stepIndex;
-    bool isCompleted = _currentStep > stepIndex;
+  /// Custom Stepper Pill Container matching screenshots
+  Widget _buildStepper() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildStepItem(0, '1', 'Choose prod...'),
+          _buildStepItem(1, '2', 'Get paid'),
+          _buildStepItem(2, '3', 'Book pickup'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepItem(int stepIndex, String number, String label) {
+    final isActive = _currentStep == stepIndex;
+    final isCompleted = _currentStep > stepIndex;
 
     return Row(
       children: [
         Container(
-          width: 30,
-          height: 30,
+          width: 26,
+          height: 26,
           decoration: BoxDecoration(
+            color: (isActive || isCompleted)
+                ? const Color(0xFF0D7E40)
+                : const Color(0xFFDCFCE7),
             shape: BoxShape.circle,
-            color: isCompleted ? AppColors.primary : (isActive ? AppColors.primary : Colors.grey.shade300),
           ),
           child: Center(
             child: isCompleted
-                ? const Icon(Icons.check, size: 16, color: Colors.white)
-                : Text('${stepIndex + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ? const Icon(Icons.check, size: 14, color: Colors.white)
+                : Text(
+                    number,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: isActive ? Colors.white : const Color(0xFF0D7E40),
+                    ),
+                  ),
           ),
         ),
-        if (title.isNotEmpty) ...[
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: TextStyle(
-              fontWeight: isActive || isCompleted ? FontWeight.bold : FontWeight.normal,
-              color: isActive || isCompleted ? AppColors.textPrimary : AppColors.textSecondary,
-            ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: (isActive || isCompleted) ? FontWeight.w700 : FontWeight.w500,
+            color: (isActive || isCompleted)
+                ? const Color(0xFF0F172A)
+                : const Color(0xFF64748B),
           ),
-        ],
+        ),
       ],
     );
-  }
-
-  Widget _buildStepLine(int stepIndex) {
-    bool isCompleted = _currentStep > stepIndex;
-    return Container(
-      width: 40,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      height: 2,
-      color: isCompleted ? AppColors.primary : Colors.grey.shade300,
-    );
-  }
-
-  Widget _buildActiveStep() {
-    switch (_currentStep) {
-      case 0:
-        return StepChooseProducts(requestData: widget.requestData, onUpdate: _onUpdate);
-      case 1:
-        return StepGetPaid(requestData: widget.requestData, onUpdate: _onUpdate);
-      case 2:
-        return StepBookPickup(key: _bookPickupKey, requestData: widget.requestData, onUpdate: _onUpdate);
-      default:
-        return const SizedBox();
-    }
   }
 }

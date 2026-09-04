@@ -14,8 +14,14 @@ import 'package:seller_ewaste/features/menu/my_addresses_screen.dart';
 class StepBookPickup extends StatefulWidget {
   final SellRequestModel requestData;
   final VoidCallback onUpdate;
+  final Widget? bottomAction;
 
-  const StepBookPickup({super.key, required this.requestData, required this.onUpdate});
+  const StepBookPickup({
+    super.key,
+    required this.requestData,
+    required this.onUpdate,
+    this.bottomAction,
+  });
 
   @override
   State<StepBookPickup> createState() => StepBookPickupState();
@@ -129,7 +135,7 @@ class StepBookPickupState extends State<StepBookPickup> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(25.0),
         color: isError ? Colors.red.shade600 : Colors.green.shade600,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -274,11 +280,138 @@ class StepBookPickupState extends State<StepBookPickup> {
     }
   }
 
+  Widget _buildPickupSummaryCard() {
+    final allItems = [...widget.requestData.items];
+    if (widget.requestData.currentItem.selectedCategoryModel != null) {
+      allItems.add(widget.requestData.currentItem);
+    }
+    final totalCount = allItems.length;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: const [
+                  Icon(Icons.calendar_month_outlined, size: 18, color: Color(0xFF0D7E40)),
+                  SizedBox(width: 8),
+                  Text(
+                    'Your Pickup Summary',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F172A)),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$totalCount ${totalCount == 1 ? 'item' : 'items'}',
+                  style: const TextStyle(color: Color(0xFF0D7E40), fontWeight: FontWeight.bold, fontSize: 11.5),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 12),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: allItems.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final item = allItems[index];
+              final catName = item.selectedCategoryModel?['name'] ?? 'Device';
+              final brand = item.textValues['brand'] ?? item.dropdownValues['brand'] ?? '';
+              final condition = item.dropdownValues['condition'] ?? 'Good';
+
+              return Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: item.localImagePaths.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(item.localImagePaths.first),
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : const Center(child: Icon(Icons.devices_rounded, size: 20, color: Color(0xFF0D7E40))),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(catName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A))),
+                        Text(brand.isNotEmpty ? '$brand • $condition' : condition, style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    item.estimatedPriceRange,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0D7E40)),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Est. Payout', style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                Text(
+                  widget.requestData.totalEstimatedPriceRange,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0D7E40)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        _buildPickupSummaryCard(),
         const Text('Pickup Address', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const Text('Choose an address and a time slot for pickup', style: TextStyle(fontSize: 12,)),
 
@@ -522,6 +655,10 @@ class StepBookPickupState extends State<StepBookPickup> {
         ),
       ],
     ),
+    if (widget.bottomAction != null) ...[
+      const SizedBox(height: 16),
+      widget.bottomAction!,
+    ],
     const SizedBox(height: 40),
   ]);
   }

@@ -1,65 +1,111 @@
 import 'package:flutter/material.dart';
-import 'package:seller_ewaste/core/theme/app_theme.dart';
 
 class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
+  final VoidCallback? onSellTap;
 
   const AppBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.onSellTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    const activeColor = Color(0xFF0D7E40);
+    const inactiveColor = Color(0xFF64748B);
+
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        border: Border(
-          top: BorderSide(color: AppColors.border, width: 1),
-        ),
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 20,
+            blurRadius: 16,
             offset: const Offset(0, -4),
           ),
         ],
       ),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        top: false,
+        child: SizedBox(
+          height: 64,
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
+              // 0: Home
               _NavItem(
-                icon: Icons.sell_rounded,
-                label: 'Sell',
+                icon: currentIndex == 0 ? Icons.home_rounded : Icons.home_outlined,
+                label: 'Home',
                 isActive: currentIndex == 0,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
                 onTap: () => onTap(0),
               ),
-              // _NavItem(
-              //   icon: Icons.dashboard,
-              //   label: 'Dashboard',
-              //   isActive: currentIndex == 1,
-              //   onTap: () => onTap(1),
-              // ),
+
+              // 1: Pickups
               _NavItem(
-                icon: Icons.receipt_long_rounded,
-                label: 'My Requests',
+                icon: Icons.inventory_2_outlined,
+                label: 'Pickups',
                 isActive: currentIndex == 1,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
                 onTap: () => onTap(1),
               ),
+
+              // Center: Recycle Sell Action Button
+              GestureDetector(
+                onTap: () {
+                  if (onSellTap != null) {
+                    onSellTap!();
+                  } else {
+                    onTap(0);
+                  }
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: activeColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: activeColor.withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.recycling_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ),
+
+              // 2: Wallet
               _NavItem(
-                icon: Icons.wallet,
+                icon: Icons.account_balance_wallet_outlined,
                 label: 'Wallet',
                 isActive: currentIndex == 2,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
                 onTap: () => onTap(2),
               ),
+
+              // 3: Profile
               _NavItem(
-                icon: Icons.person,
+                icon: Icons.person_outline_rounded,
                 label: 'Profile',
                 isActive: currentIndex == 3,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
                 onTap: () => onTap(3),
               ),
             ],
@@ -74,58 +120,49 @@ class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isActive;
+  final Color activeColor;
+  final Color inactiveColor;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
     required this.label,
     required this.isActive,
+    required this.activeColor,
+    required this.inactiveColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final color = isActive ? activeColor : inactiveColor;
+
     return Expanded(
-      child: GestureDetector(
+      child: InkWell(
         onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          color: Colors.transparent,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: isActive ? AppColors.primaryLight : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      icon,
-                      color: isActive ? AppColors.primary : AppColors.textMuted,
-                      size: 22,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                        color: isActive ? AppColors.primary : AppColors.textMuted,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: color,
+              size: 23,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: color,
               ),
-            ],
-          ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );

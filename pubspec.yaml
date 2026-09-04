@@ -76,6 +76,8 @@ flutter:
   assets:
     - assets/vdo1.mp4
     - assets/seller-logo.png
+    - assets/dashboard_banner.jpg
+    - assets/voucher_promo.jpg
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

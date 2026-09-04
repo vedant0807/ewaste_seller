@@ -12,14 +12,23 @@ class SellItemModel {
     if (localImagePaths.isEmpty && uploadedImageUrls.isEmpty) return false;
 
     final attrs = selectedCategoryModel!['attributes'] as List<dynamic>? ?? [];
-    for (final attrMap in attrs) {
-      final attr = attrMap as Map<String, dynamic>;
-      final slug = attr['slug'] as String;
-      if (attr['inputType'] == 'dropdown') {
-        if (dropdownValues[slug]?.isEmpty ?? true) return false;
-      } else {
-        if (textValues[slug]?.isEmpty ?? true) return false;
+    if (attrs.isNotEmpty) {
+      for (final attrMap in attrs) {
+        if (attrMap is! Map) continue;
+        final slug = attrMap['slug']?.toString() ?? '';
+        if (slug.isEmpty) continue;
+        final val = (dropdownValues[slug] ?? textValues[slug])?.trim();
+        if (val == null || val.isEmpty) return false;
       }
+    } else {
+      final brand = (textValues['brand'] ?? dropdownValues['brand'])?.trim();
+      if (brand == null || brand.isEmpty) return false;
+      final age = (textValues['age'] ?? dropdownValues['age'])?.trim();
+      if (age == null || age.isEmpty) return false;
+      final condition = (dropdownValues['condition'] ?? textValues['condition'])?.trim();
+      if (condition == null || condition.isEmpty) return false;
+      final type = (textValues['type'] ?? dropdownValues['type'])?.trim();
+      if (type == null || type.isEmpty) return false;
     }
     return true;
   }
@@ -28,7 +37,7 @@ class SellItemModel {
     if (!isComplete) return 0;
     
     final basePrices = <String, int>{
-      'Mobile': 4000,
+      'Mobile': 3500,
       'Laptop': 8500,
       'Desktop': 5000,
       'Television': 2000,
@@ -41,7 +50,7 @@ class SellItemModel {
       'AC': 4500,
       'Refrigerator': 3000,
       'Washing Machine': 2500,
-      'Other': 1000,
+      'Other': 1500,
     };
 
     final conditionMultiplier = <String, double>{
@@ -51,8 +60,18 @@ class SellItemModel {
       'Poor': 0.5,
     };
 
-    final base = basePrices[selectedCategoryModel!['name']] ?? 1000;
-    final cond = dropdownValues['condition'] ?? 'Good';
+    if (selectedCategoryModel == null) return 0;
+    final catName = (selectedCategoryModel!['name'] ?? '').toString().toLowerCase();
+
+    int base = 2500;
+    for (final entry in basePrices.entries) {
+      if (catName.contains(entry.key.toLowerCase())) {
+        base = entry.value;
+        break;
+      }
+    }
+
+    final cond = dropdownValues['condition'] ?? textValues['condition'] ?? 'Good';
     final mult = conditionMultiplier[cond] ?? 1.0;
     return (base * mult).round();
   }
@@ -60,8 +79,8 @@ class SellItemModel {
   String get estimatedPriceRange {
     final p = estimatedPrice;
     if (p == 0) return '—';
-    final lo = (p * 0.9).round();
-    final hi = (p * 1.1).round();
+    final lo = (p * 0.85).round();
+    final hi = (p * 1.15).round();
     return '₹${_fmt(lo)} – ₹${_fmt(hi)}';
   }
 
@@ -88,20 +107,30 @@ class SellRequestModel {
   String get estimatedPriceRange => currentItem.estimatedPriceRange;
 
   // Derived / Calculated values
+  int get totalItemCount {
+    int count = items.length;
+    if (currentItem.isComplete) {
+      count += 1;
+    }
+    return count;
+  }
+
   int get estimatedPrice {
     int total = 0;
     for (var item in items) {
       total += item.estimatedPrice;
     }
-    total += currentItem.estimatedPrice;
+    if (currentItem.isComplete) {
+      total += currentItem.estimatedPrice;
+    }
     return total;
   }
 
   String get totalEstimatedPriceRange {
     final p = estimatedPrice;
     if (p == 0) return '—';
-    final lo = (p * 0.9).round();
-    final hi = (p * 1.1).round();
+    final lo = (p * 0.85).round();
+    final hi = (p * 1.15).round();
     return '₹${_fmt(lo)} – ₹${_fmt(hi)}';
   }
 
@@ -120,6 +149,24 @@ class SellRequestModel {
     }
   }
 
+  // Remove an item at specific index
+  void removeItem(int index) {
+    if (index >= 0 && index < items.length) {
+      items.removeAt(index);
+    }
+  }
+
+  // Load an existing item into currentItem for editing
+  void loadItemForEdit(int index) {
+    if (index >= 0 && index < items.length) {
+      // If current item has data, preserve it into items first
+      if (currentItem.selectedCategoryModel != null) {
+        items.add(currentItem);
+      }
+      currentItem = items.removeAt(index);
+    }
+  }
+
   // Step 3: Payment
   String paymentMethod = 'upi'; // 'upi' | 'bank' | 'voucher'
   String upiId = '';
@@ -129,6 +176,8 @@ class SellRequestModel {
   String ifscCode = '';
   bool hasGst = false;
   String gstNumber = '';
+  String voucherEmail = '';
+  String voucherMobile = '';
 
   // Step 4: Schedule
   String fullName = '';

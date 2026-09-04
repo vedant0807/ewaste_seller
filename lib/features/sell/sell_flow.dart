@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:seller_ewaste/features/sell/models/sell_request_model.dart';
-import 'package:seller_ewaste/features/sell/screens/sell_item_screen.dart';
+import 'package:seller_ewaste/features/sell/screens/sell_wizard_screen.dart';
 
 class SellFlowEntryPoint extends StatefulWidget {
   const SellFlowEntryPoint({super.key});
@@ -20,6 +20,6 @@ class _SellFlowEntryPointState extends State<SellFlowEntryPoint> {
 
   @override
   Widget build(BuildContext context) {
-    return SellItemScreen(requestData: _requestData);
+    return SellWizardScreen(requestData: _requestData);
   }
 }
