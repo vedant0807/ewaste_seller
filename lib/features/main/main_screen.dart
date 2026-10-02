@@ -42,6 +42,7 @@ class _MainScreenState extends State<MainScreen> {
       DashboardScreen(
         onNavigateToRequests: () => _onNavigateTab(1),
         onNavigateToWallet: () => _onNavigateTab(2),
+        onNavigateToProfile: () => _onNavigateTab(3),
         onNavigateToSell: _onOpenSellFlow,
       ),
       const RequestsScreen(),

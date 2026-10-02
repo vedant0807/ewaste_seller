@@ -4,6 +4,7 @@ import 'package:seller_ewaste/core/services/api_service.dart';
 import 'package:seller_ewaste/core/services/session_manager.dart';
 import 'package:seller_ewaste/features/menu/profile_screen.dart';
 import 'package:seller_ewaste/features/menu/wallet_screen.dart';
+import 'package:seller_ewaste/features/menu/menu_screen.dart';
 import 'package:seller_ewaste/features/requests/requests_screen.dart';
 import 'package:seller_ewaste/features/requests/request_detail_screen.dart';
 import 'package:seller_ewaste/features/sell/sell_flow.dart';
@@ -12,12 +13,14 @@ class DashboardScreen extends StatefulWidget {
   final VoidCallback? onNavigateToRequests;
   final VoidCallback? onNavigateToWallet;
   final VoidCallback? onNavigateToSell;
+  final VoidCallback? onNavigateToProfile;
 
   const DashboardScreen({
     super.key,
     this.onNavigateToRequests,
     this.onNavigateToWallet,
     this.onNavigateToSell,
+    this.onNavigateToProfile,
   });
 
   @override
@@ -25,6 +28,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isLoading = true;
   String? _error;
   Map<String, dynamic>? _summary;
@@ -117,10 +121,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _goToProfile() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-    );
+    if (widget.onNavigateToProfile != null) {
+      widget.onNavigateToProfile!();
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+      );
+    }
   }
 
   @override
@@ -172,6 +180,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         statusBarColor: Colors.transparent,
       ),
       child: Scaffold(
+        key: _scaffoldKey,
+        drawer: MenuScreen(
+          onNavigateToDashboard: () {},
+          onNavigateToRequests: widget.onNavigateToRequests,
+          onNavigateToWallet: widget.onNavigateToWallet,
+          onNavigateToProfile: _goToProfile,
+        ),
         backgroundColor: const Color(0xFFF4F7F5),
         body: RefreshIndicator(
           color: const Color(0xFF0D7E40),
@@ -255,43 +270,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row: Greeting & Avatar
+          // Row: Menu Drawer Icon, Greeting & Avatar
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _getGreeting(),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white.withValues(alpha: 0.88),
+              GestureDetector(
+                onTap: () {
+                  _scaffoldKey.currentState?.openDrawer();
+                },
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.25),
+                      width: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Text(
-                        _userName,
-                        style: const TextStyle(
-                          fontSize: 23,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        '👋',
-                        style: TextStyle(fontSize: 20),
-                      ),
-                    ],
+                  child: const Center(
+                    child: Icon(
+                      Icons.menu_rounded,
+                      color: Colors.white,
+                      size: 26,
+                    ),
                   ),
-                ],
+                ),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _getGreeting(),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white.withValues(alpha: 0.88),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _userName,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          '👋',
+                          style: TextStyle(fontSize: 20),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
               GestureDetector(
                 onTap: _goToProfile,
                 child: Container(

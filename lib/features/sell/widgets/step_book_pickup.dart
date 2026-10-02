@@ -38,6 +38,9 @@ class StepBookPickupState extends State<StepBookPickup> {
   bool _isCheckingPincode = false;
   String _pincodeErrorMsg = '';
 
+  List<dynamic> _savedGstNumbers = [];
+  Map<String, dynamic>? _selectedGst;
+
   @override
   void initState() {
     super.initState();
@@ -66,6 +69,18 @@ class StepBookPickupState extends State<StepBookPickup> {
         _checkPincode();
       } else {
         widget.requestData.selectedAddressModel = null;
+      }
+
+      final List<dynamic> gstList = data['gstNumbers'] ?? [];
+      _savedGstNumbers = gstList;
+      if (_savedGstNumbers.isNotEmpty) {
+        _selectedGst = _savedGstNumbers.firstWhere(
+          (g) => g['isDefault'] == true,
+          orElse: () => _savedGstNumbers.first,
+        ) as Map<String, dynamic>;
+        if (widget.requestData.hasGst && widget.requestData.gstNumber.isEmpty) {
+          widget.requestData.gstNumber = _selectedGst!['gstNumber'] ?? '';
+        }
       }
     } catch (e) {
       widget.requestData.selectedAddressModel = null;
@@ -166,6 +181,10 @@ class StepBookPickupState extends State<StepBookPickup> {
     }
     if (widget.requestData.timeSlot == null) {
       _showToast('Please select a pickup time slot', isError: true);
+      return false;
+    }
+    if (widget.requestData.hasGst && widget.requestData.gstNumber.trim().isEmpty) {
+      _showToast('Please select or add a GST number', isError: true);
       return false;
     }
     if (!termsAccepted) {
@@ -655,12 +674,302 @@ class StepBookPickupState extends State<StepBookPickup> {
         ),
       ],
     ),
+
+    // ── GST Section ──────────────────────────────────────────
+    const SizedBox(height: 24),
+    Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: widget.requestData.hasGst ? const Color(0xFF0D7E40) : AppColors.border,
+          width: widget.requestData.hasGst ? 1.5 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () {
+              setState(() {
+                widget.requestData.hasGst = !widget.requestData.hasGst;
+                if (widget.requestData.hasGst) {
+                  if (_selectedGst != null) {
+                    widget.requestData.gstNumber = _selectedGst!['gstNumber'] ?? '';
+                  }
+                } else {
+                  widget.requestData.gstNumber = '';
+                }
+              });
+              widget.onUpdate();
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  widget.requestData.hasGst ? Icons.check_circle_rounded : Icons.circle_outlined,
+                  color: widget.requestData.hasGst ? const Color(0xFF0D7E40) : Colors.grey.shade400,
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'I have a GST number (optional)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        'Quoted price is inclusive of 18% GST.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (widget.requestData.hasGst) ...[
+            const SizedBox(height: 16),
+            _buildGstSelection(),
+          ],
+        ],
+      ),
+    ),
+
     if (widget.bottomAction != null) ...[
       const SizedBox(height: 16),
       widget.bottomAction!,
     ],
     const SizedBox(height: 40),
   ]);
+  }
+
+  void _showAddGstDialog() {
+    final gstNumberController = TextEditingController();
+    final labelController = TextEditingController();
+    bool isDefault = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Add GST Number', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: gstNumberController,
+                textCapitalization: TextCapitalization.characters,
+                maxLength: 15,
+                decoration: InputDecoration(
+                  labelText: 'GST Number *',
+                  hintText: 'e.g. 27AAAAA0000A1Z5',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: labelController,
+                decoration: InputDecoration(
+                  labelText: 'Business / Trade Name (Optional)',
+                  hintText: 'e.g. My Shop',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Checkbox(
+                    value: isDefault,
+                    activeColor: const Color(0xFF0D7E40),
+                    onChanged: (v) => setDialogState(() => isDefault = v ?? false),
+                  ),
+                  const Text('Set as default GST', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final text = gstNumberController.text.trim().toUpperCase();
+                if (text.isEmpty) {
+                  _showToast('GST Number is required', isError: true);
+                  return;
+                }
+                if (text.length != 15) {
+                  _showToast('Invalid GST Number format (15 characters required)', isError: true);
+                  return;
+                }
+                Navigator.pop(ctx);
+                try {
+                  final payload = {
+                    'gstNumber': text,
+                    'label': labelController.text.trim(),
+                    'isDefault': isDefault,
+                  };
+                  await ApiService().addGstNumber(payload);
+                  _showToast('GST number added successfully', isError: false);
+                  await _loadAddress();
+                  setState(() {
+                    widget.requestData.hasGst = true;
+                    widget.requestData.gstNumber = text;
+                    _selectedGst = {'gstNumber': text, 'label': labelController.text.trim(), 'isDefault': isDefault};
+                  });
+                  widget.onUpdate();
+                } catch (_) {
+                  _showToast('Failed to save GST number', isError: true);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D7E40),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Save GST Number'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGstSelection() {
+    if (_savedGstNumbers.isEmpty || _selectedGst == null) {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: _showAddGstDialog,
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('Add New GST Number', style: TextStyle(fontWeight: FontWeight.bold)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF0D7E40),
+            side: const BorderSide(color: Color(0xFF0D7E40)),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0FDF4),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBBF7D0)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'GSTIN: ',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF64748B)),
+                      ),
+                      Text(
+                        _selectedGst!['gstNumber'] ?? '',
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F172A)),
+                      ),
+                    ],
+                  ),
+                  if ((_selectedGst!['label']?.toString() ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      _selectedGst!['label'].toString(),
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ],
+              ),
+              InkWell(
+                onTap: () {
+                  showModalBottomSheet(
+                    context: context,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    builder: (ctx) => SafeArea(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text('Select GST Number', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                          ),
+                          ..._savedGstNumbers.map((gst) => ListTile(
+                            title: Text(gst['gstNumber'] ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),
+                            subtitle: gst['label'] != null && gst['label'].toString().isNotEmpty ? Text(gst['label']) : null,
+                            trailing: _selectedGst != null && _selectedGst!['id'] == gst['id']
+                                ? const Icon(Icons.check_circle, color: Color(0xFF0D7E40))
+                                : null,
+                            onTap: () {
+                              setState(() {
+                                _selectedGst = gst as Map<String, dynamic>;
+                                widget.requestData.gstNumber = gst['gstNumber'] ?? '';
+                              });
+                              widget.onUpdate();
+                              Navigator.pop(ctx);
+                            },
+                          )),
+                          const Divider(),
+                          ListTile(
+                            leading: const Icon(Icons.add, color: Color(0xFF0D7E40)),
+                            title: const Text('Add New GST Number', style: TextStyle(color: Color(0xFF0D7E40), fontWeight: FontWeight.bold)),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              _showAddGstDialog();
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Text(
+                    'Change',
+                    style: TextStyle(color: Color(0xFF0D7E40), fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

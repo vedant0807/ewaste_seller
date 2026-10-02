@@ -1,0 +1,26 @@
+═══════════════════════════════════════
+       SYNISE TECHNOLOGIES - TAX INVOICE
+═══════════════════════════════════════
+Invoice No : INV-2026-003
+Order ID   : ORD-2026-003
+Date       : 21 Sept 2026
+Type       : Buy
+Status     : Placed
+─── Delivery Address ───
+Test Vjjjj222
+Shaniwar peth
+Warud, Maharashtra - 444999
+Phone: 8855854942
+─── Ordered Certified Items ───
+Certified Refurbished DJI Osmo Pocket 3 Creator Combo Handheld Gimbal Camera x 1  ₹48999
+─── Price Breakdown ───
+Subtotal      : ₹48,999
+Discount      : -₹19,901
+GST (18%)     : ₹8,820
+Delivery      : FREE
+─────────────────────
+TOTAL PAYABLE : ₹57,819
+Payment Mode: Cash on Delivery (COD)
+Certified 1-Year Warranty by Synise Marketplace
+support@synise.in | www.synise.in
+═══════════════════════════════════════

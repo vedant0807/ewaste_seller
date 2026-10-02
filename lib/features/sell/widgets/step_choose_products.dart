@@ -261,21 +261,21 @@ class _StepChooseProductsState extends State<StepChooseProducts> {
       return Image.network(
         imageUrl.toString(),
         fit: BoxFit.contain,
-        width: 34,
-        height: 34,
+        width: 60,
+        height: 52,
         errorBuilder: (context, error, stackTrace) => Icon(
           _getFallbackIconForName(cat['name']?.toString() ?? ''),
-          size: 26,
+          size: 36,
           color: isSelected ? const Color(0xFF0D7E40) : const Color(0xFF475569),
         ),
       );
     }
     if (cat['emoji'] != null && cat['emoji'].toString().isNotEmpty && !cat['emoji'].toString().startsWith('http')) {
-      return Text(cat['emoji'].toString(), style: const TextStyle(fontSize: 26));
+      return Text(cat['emoji'].toString(), style: const TextStyle(fontSize: 34));
     }
     return Icon(
       cat['icon'] as IconData? ?? _getFallbackIconForName(cat['name']?.toString() ?? ''),
-      size: 26,
+      size: 36,
       color: isSelected ? const Color(0xFF0D7E40) : const Color(0xFF475569),
     );
   }
@@ -918,7 +918,7 @@ class _StepChooseProductsState extends State<StepChooseProducts> {
       itemCount: categories.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        childAspectRatio: 0.95,
+        childAspectRatio: 0.82,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
       ),
@@ -943,7 +943,7 @@ class _StepChooseProductsState extends State<StepChooseProducts> {
           },
           borderRadius: BorderRadius.circular(18),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
             decoration: BoxDecoration(
               color: isSelected ? const Color(0xFFDCFCE7) : Colors.white,
               borderRadius: BorderRadius.circular(18),
@@ -982,19 +982,19 @@ class _StepChooseProductsState extends State<StepChooseProducts> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        width: 38,
-                        height: 38,
+                        height: 52,
+                        width: double.infinity,
                         alignment: Alignment.center,
                         child: _buildCategoryIcon(cat, isSelected),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Text(
                         cat['name']?.toString() ?? '',
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: isSelected ? const Color(0xFF0D7E40) : const Color(0xFF0F172A),
                           height: 1.15,
